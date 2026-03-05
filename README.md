@@ -9,7 +9,7 @@
 
 <br>
 
-*Customize your Garry's Mod main menu with dark/light themes, custom backgrounds, and a full-featured music player - all through a modern, sleek interface.*
+*Customize your Garry's Mod main menu with dark/light themes, custom backgrounds, and a full-featured music player*
 
 </div>
 
