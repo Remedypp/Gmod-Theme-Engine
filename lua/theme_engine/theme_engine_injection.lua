@@ -106,7 +106,10 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
 </style>
 <div id="theme_options_page" style="position:absolute;left:0;right:0;top:0;bottom:50px;overflow:hidden;padding:20px;display:flex;align-items:flex-start;justify-content:center;">
     <div class="theme-container">
-        <h2 class="theme-header">Theme Engine</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h2 class="theme-header" style="margin-bottom:0;">Theme Engine</h2>
+            <button id="dt_changelog_btn" class="theme-btn" style="position:relative;background:rgba(255,255,255,0.05);color:#94a3b8;border:1px solid rgba(255,255,255,0.08);font-size:0.85rem;padding:6px 14px;" onclick="DarkThemeEngine_ShowChangelog()">Changelog<span id="dt_changelog_new" style="display:none;position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;box-shadow:0 0 6px rgba(239,68,68,0.6);"></span></button>
+        </div>
         <div class="theme-tabs">
             <button class="theme-tab active" onclick="DarkThemeEngine_SwitchTab('main',this)">Colors & Theme</button>
             <button class="theme-tab" onclick="DarkThemeEngine_SwitchTab('backgrounds',this)">Backgrounds</button>
@@ -447,6 +450,72 @@ window.DarkThemeEngine_ShowAddMusicGuide = function() {
     };
     document.getElementById('dt_guide_x').onclick = closeGuide;
     document.getElementById('dt_guide_gotit').onclick = closeGuide;
+};
+window.DarkThemeEngine_ShowChangelog = function() {
+    var existing = document.getElementById('dt_changelog_panel');
+    if (existing) { existing.remove(); return; }
+    var panel = document.createElement('div');
+    panel.id = 'dt_changelog_panel';
+    panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+
+    // =============================================
+    // CHANGELOG ENTRIES - Add new versions at top
+    // =============================================
+    var logs = [
+        { ver: '0.1.2-beta', changes: [
+            'Updated menu.lua pastebin',
+            'Theme Engine now loads after the menu is fully ready (deferred loading)',
+            'This should fix the loading screen freeze for all users'
+        ]},
+        { ver: '0.1.1-beta', changes: [
+            'Updated menu.lua pastebin with latest fixes',
+            'Fixed game getting stuck on loading screen when using modified menu.lua',
+            'Improved addon enable/disable detection and cleanup',
+            'Sorry for the issues, I\x27m working hard to make it stable'
+        ]},
+        { ver: '0.1.0-beta', changes: [
+            'Updated menu.lua pastebin with latest loader code',
+            'Fixed potential crash on x86-64 branch',
+            'Added Changelog panel'
+        ]}
+    ];
+    // =============================================
+
+    var inner = '<div style="width:480px;max-width:90vw;max-height:70vh;overflow-y:auto;background:rgba(15,23,42,0.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:30px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);color:#e2e8f0;font-size:0.95rem;line-height:1.5;">';
+    inner += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid rgba(255,255,255,0.08);">';
+    inner += '<span style="font-size:1.3rem;font-weight:600;color:#f8fafc;">Changelog</span>';
+    inner += '<button id="dt_changelog_x" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">\u2715</button>';
+    inner += '</div>';
+    for (var i = 0; i < logs.length; i++) {
+        var entry = logs[i];
+        inner += '<div style="margin-bottom:20px;' + (i < logs.length-1 ? 'padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.05);' : '') + '">';
+        inner += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">';
+        inner += '<span style="font-weight:700;color:#60a5fa;font-size:1.05rem;">v' + entry.ver + '</span>';
+        if (entry.tag) inner += '<span style="font-size:0.7rem;padding:2px 8px;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);border-radius:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">' + entry.tag + '</span>';
+        inner += '</div>';
+        for (var j = 0; j < entry.changes.length; j++) {
+            inner += '<div style="padding:6px 0 6px 14px;color:#cbd5e1;font-size:0.9rem;border-left:2px solid rgba(255,255,255,0.06);margin-left:4px;">';
+            inner += '<span style="color:#475569;margin-right:8px;">&#8226;</span>' + entry.changes[j];
+            inner += '</div>';
+        }
+        inner += '</div>';
+    }
+    inner += '</div>';
+    panel.innerHTML = inner;
+    panel.onclick = function(e) { if (e.target === panel) panel.remove(); };
+    document.body.appendChild(panel);
+    // Mark as seen
+    try { localStorage.setItem('DarkTheme_LastSeenChangelog', logs[0].ver); } catch(e) {}
+    var dot = document.getElementById('dt_changelog_new');
+    if (dot) dot.style.display = 'none';
+    document.getElementById('dt_changelog_x').onclick = function() { panel.remove(); };
+};
+window.DarkThemeEngine_CheckChangelogNew = function() {
+    var currentVer = '0.1.2-beta';
+    var seen = '';
+    try { seen = localStorage.getItem('DarkTheme_LastSeenChangelog') || ''; } catch(e) {}
+    var dot = document.getElementById('dt_changelog_new');
+    if (dot && seen !== currentVer) dot.style.display = 'block';
 };
 window.DarkThemeEngine_FilterBgs = function() {
     if (window._DarkTheme_SelectedCategory) window.DarkThemeEngine_ShowCategoryDetail(window._DarkTheme_SelectedCategory);
@@ -943,6 +1012,7 @@ window.DarkThemeEngine_MusicPreviewPrev = function() {
 // Purpose: Theme Options Link Injection & Setup
 //-----------------------------------------------------------------------------
 window.DarkThemeEngine_InjectLink = function() {
+    if (window._DarkThemeEngine_Disabled) return;
     if (document.getElementById('theme_options_btn')) { return; }
     var allLinks = document.querySelectorAll('.options a');
     if (allLinks.length === 0) return;
@@ -962,12 +1032,11 @@ window.DarkThemeEngine_InjectLink = function() {
     }
 };
 window.DarkThemeEngine_CleanupAllOverlays = function() {
+    var c = document.querySelector('.theme-container');
     var guide = document.getElementById('dt_workshop_guide');
-    if (guide) {
-        guide.remove();
-        var c = document.querySelector('.theme-container');
-        if (c) c.classList.remove('guide-open');
-    }
+    if (guide) { guide.remove(); if (c) c.classList.remove('guide-open'); }
+    var changelog = document.getElementById('dt_changelog_panel');
+    if (changelog) changelog.remove();
     if (window.DarkThemeEngine_ClosePreview) window.DarkThemeEngine_ClosePreview();
     if (window.DarkThemeEngine_CloseMusicPreview) window.DarkThemeEngine_CloseMusicPreview();
 };
@@ -1105,6 +1174,7 @@ local function InjectThemeIntoMenu()
         "if(window.DarkThemeEngine_InitSettingsUI) window.DarkThemeEngine_InitSettingsUI(%s);",
         util.TableToJSON(themeOpts)
     ))
+    DarkThemeEngine.CallJS("if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew();")
     hasInjected = true
 end
 local function TryInject()
@@ -1112,6 +1182,11 @@ local function TryInject()
         hasInjected = false
     end
     if hasInjected then return end
+    -- Wait for all dependencies to be loaded
+    if not DarkThemeEngine.SendMusicToJS then
+        timer.Simple(0.5, TryInject)
+        return
+    end
     if IsValid(pnlMainMenu) and pnlMainMenu.menuLoaded then
         InjectThemeIntoMenu()
     else

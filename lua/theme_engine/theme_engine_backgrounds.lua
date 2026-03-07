@@ -274,6 +274,7 @@ local function CustomClearBackgroundImages()
 end
 
 local function CustomAddBackgroundImage(img)
+    if not DarkThemeEngine or not DarkThemeEngine.AllBackgroundsLookup then return end
     local normImg = NormalizePath(img)
     if not DarkThemeEngine.AllBackgroundsLookup[normImg] then
         DarkThemeEngine.AllBackgroundsLookup[normImg] = true
@@ -404,6 +405,7 @@ end
 
 local function Render(tbl)
     if not tbl.mat or tbl.Alpha <= 0 then return end
+    if not surface or not surface.SetMaterial then return end
     surface.SetMaterial(tbl.mat)
     surface.SetDrawColor(255, 255, 255, tbl.Alpha)
     
@@ -417,6 +419,7 @@ end
 
 local function CustomDrawBackground()
     if IsInGame() or IsInLoading() then return end
+    if not DarkThemeEngine or not DarkThemeEngine.AllBackgrounds then return end
 
     local validCount = 0
     for _, bgData in ipairs(DarkThemeEngine.AllBackgrounds) do

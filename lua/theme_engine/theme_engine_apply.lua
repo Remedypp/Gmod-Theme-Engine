@@ -1,3 +1,30 @@
+------------------------------------------------------------
+-- x86-64 Compatibility Layer
+------------------------------------------------------------
+-- string.JavascriptSafe: escapes strings for JS injection
+if not string.JavascriptSafe then
+    string.JavascriptSafe = function( str )
+        if not str then return "" end
+        str = string.gsub( str, "\\", "\\\\" )
+        str = string.gsub( str, '"', '\\"' )
+        str = string.gsub( str, "'", "\\'" )
+        str = string.gsub( str, "\n", "\\n" )
+        str = string.gsub( str, "\r", "\\r" )
+        str = string.gsub( str, "\t", "\\t" )
+        return str
+    end
+end
+
+-- util.Base64Encode: fallback to empty string if missing
+if not util.Base64Encode then
+    util.Base64Encode = function() return "" end
+end
+
+-- Menu state functions: may not exist on all branches
+if not IsInGame then IsInGame = function() return false end end
+if not IsInLoading then IsInLoading = function() return false end end
+
+------------------------------------------------------------
 local DATA_DIR = "theme_engine_data"
 local DATA_FILE = DATA_DIR .. "/settings.json"
 

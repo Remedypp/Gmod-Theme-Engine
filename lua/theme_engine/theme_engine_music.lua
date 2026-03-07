@@ -17,8 +17,9 @@ local function SafeStringCleaning(text)
 end
 
 local function DarkTheme_ReadID3Tags(filename, pathID)
-    local f = file.Open(filename, "rb", pathID)
-    if not f then return nil end
+    if not file.Open then return nil end
+    local ok, f = pcall( file.Open, filename, "rb", pathID )
+    if not ok or not f then return nil end
 
     local header = f:Read(3)
     if header ~= "ID3" then f:Close() return nil end
@@ -256,7 +257,8 @@ function DarkTheme_PlayStartupMusic()
     if isShuffle == nil then isShuffle = false end
 
     local jsMusicArray = util.TableToJSON(validMusic)
-    local curVol = GetConVar("snd_musicvolume"):GetFloat() or 1.0
+    local volCvar = GetConVar("snd_musicvolume")
+    local curVol = volCvar and volCvar:GetFloat() or 1.0
     curVol = math.max(0, math.min(1, curVol))
 
     if IsValid(pnlMainMenu) then
@@ -458,7 +460,8 @@ hook.Add("Think", "DarkThemeEngine_Music_Think", function()
         end
 
         if IsMusicPlaying and IsValid(pnlMainMenu) then
-            local currentVolume = GetConVar("snd_musicvolume"):GetFloat() or 1.0
+            local volCvar2 = GetConVar("snd_musicvolume")
+            local currentVolume = volCvar2 and volCvar2:GetFloat() or 1.0
             if currentVolume ~= lastVolume then
                 lastVolume = currentVolume
                 DarkThemeEngine.CallJS("if(window.DarkTheme_AudioNode) { window.DarkTheme_AudioNode.volume = Math.max(0, Math.min(1, " .. currentVolume .. ")); }")
