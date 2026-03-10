@@ -15,6 +15,24 @@ include( "problems/problems.lua" )
 include( "motionsensor.lua" )
 include( "util.lua" )
 
+--[[
+  THEME ENGINE LOADER
+  REPLACE your entire menu.lua with the full content of the pastebin.
+  Blue screen / stuck loading? You only copied the ThemeEngine section.
+  Fix: Copy the COMPLETE pastebin — it already includes the original
+       GMod include() calls at the top.
+--]]
+timer.Simple( 0, function()
+
+if not IsValid(pnlMainMenu) then
+	MsgC( Color( 255, 100, 100 ), "[ThemeEngine] CRITICAL: pnlMainMenu not found.\n" )
+	MsgC( Color( 255, 200, 100 ), "[ThemeEngine] Did you copy only part of the pastebin?\n" )
+	MsgC( Color( 255, 200, 100 ), "[ThemeEngine] Fix: Replace the full menu.lua with the complete pastebin content (it includes the GMod includes at the top).\n" )
+	return
+end
+
+local _te_ok, _te_err = pcall(function()
+
 local THEME_ENGINE_WSID = "3679295208"
 
 local function DiscoverThemeFiles()
@@ -200,3 +218,5 @@ end)
 if not _te_ok then
 	MsgC( Color( 255, 100, 100 ), "[ThemeEngine] Failed to initialize: " .. tostring( _te_err ) .. "\n" )
 end
+
+end)
