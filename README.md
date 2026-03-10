@@ -1,137 +1,109 @@
 <div align="center">
 
-# 🎨 Gmod Theme Engine
+# Gmod Theme Engine
 
 **A complete theme engine for the Garry's Mod main menu**
 
 [![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-1b2838?style=for-the-badge&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3679295208)
 [![Lua](https://img.shields.io/badge/Lua-5.1-2C2D72?style=for-the-badge&logo=lua&logoColor=white)](https://www.lua.org/)
 
-<br>
-
-*Customize your Garry's Mod main menu with dark/light themes, custom backgrounds, and a full-featured music player*
-
 </div>
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎭 Theme Presets
-Switch between **Dark** and **Light** visual styles for the entire main menu UI. The theme system injects custom CSS that transforms the default GMod interface.
-
-### 🖼️ Background Manager
-- Automatically **scans and categorizes** all available menu backgrounds (local and Workshop)
-- **Enable/disable** individual backgrounds from the rotation
-- **Right-click preview** with fullscreen viewer and navigation arrows
-- **Category view** with Workshop addon icons fetched automatically
-- Animation options: **Static mode**, **Disable Zoom**, **Instant Cut**
-
-### 🎵 Menu Music Player
-- Supports **MP3**, **WAV**, and **OGG** formats
-- Reads **ID3 tags** (artist, title, cover art) directly from MP3 files
-- **Playlist mode** with auto-advance and **shuffle**
-- Custom metadata via `addon_music_meta.json` (titles, artists, cover art, descriptions, YouTube links)
-- **Right-click** any track for detailed preview with cover art and YouTube link
-- Volume follows the `snd_musicvolume` ConVar
-
-### 📖 Workshop Guide
-Built-in step-by-step guide on how to create and publish your own music packs to the Steam Workshop using [gmpublisher](https://github.com/WilliamVenner/gmpublisher).
-
-### 🎂 Anniversary Event
-A special surprise appears on **November 29th** each year!
+- Switch between **Dark** and **Light** visual themes for the entire main menu UI
+- **Background manager** - enable/disable backgrounds by category, add custom images via URL, control slideshow speed and overlay dim level
+- Automatically detects and categorizes backgrounds from all mounted Workshop addons
+- **Music player** - plays MP3 and WAV files from local folders or Workshop addons, with playlist mode, shuffle, and volume control
+- **Album system** - organize tracks into subfolders, each subfolder becomes a toggleable album
+- Reads **ID3 tags** (artist, title, cover art) automatically from MP3 files
+- Custom metadata via `data_static/te_music_meta.json` (Workshop) or `data/theme_engine_music/te_music_meta.json` (local)
+- **Spawnmenu skin manager** - switch between installed Derma skin addons from within the Theme Engine UI
+- **Custom font picker** - override the menu font with built-in presets or locally installed `.ttf` files
+- Dark theme applied to the **map loading screen**
+- Background and music **preview modals** with right-click
+- Built-in **Help system** with categorized documentation for all features
 
 ---
 
-## 📦 Installation
+## Installation
 
 ### Step 1: Subscribe to the Workshop Addon
+
 Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3679295208).
 
 ### Step 2: Modify `menu.lua`
 
-The Theme Engine needs a small loader added to Garry's Mod's `menu.lua` file to work.
+The Theme Engine requires a loader to be added to Garry's Mod's `menu.lua`.
 
-1. **Right-click** Garry's Mod in Steam → **Manage** → **Browse Local Files**
+1. Right-click Garry's Mod in Steam → **Manage** → **Browse Local Files**
 2. Navigate to `garrysmod/lua/menu/`
-3. Open `menu.lua` with any text editor (Notepad, VS Code, etc.)
+3. Open `menu.lua` with any text editor
 4. Go to **[this Pastebin](https://pastebin.com/h9Zv6kfA)**
-5. **Copy ALL** the code from the Pastebin
-6. **Replace the entire content** of your `menu.lua` with the copied code
-7. **Save** the file and **restart** Garry's Mod
+5. Copy ALL the code from the Pastebin
+6. Replace the entire content of `menu.lua` with the copied code
+7. Save and restart Garry's Mod
 
-> [!NOTE]
-> After restarting, a new **"Theme Options"** button will appear in your main menu below the **"Options"** button.
-
----
-
-## 🎵 Adding Custom Music
-
-### Method 1: Local Files
-Place your `.mp3`, `.wav`, or `.ogg` files directly in:
-```
-garrysmod/sound/theme_engine_music/
-```
-
-### Method 2: Steam Workshop
-Publish your own music pack addon with this folder structure:
-```
-MyMusicAddon/
-├── addon.json
-└── sound/
-    └── theme_engine_music/
-        ├── song1.mp3
-        ├── song2.mp3
-        └── addon_music_meta.json   (optional)
-```
-
-### Custom Metadata (Optional)
-Create `addon_music_meta.json` next to your audio files for rich metadata:
-```json
-{
-  "song1.mp3": {
-    "title": "Epic Theme",
-    "artist": "John Smith",
-    "cover": "materials/vgui/my_cover.png",
-    "desc": "Perfect main menu loop",
-    "youtube": "https://youtube.com/watch?v=..."
-  }
-}
-```
-
-> [!TIP]
-> If you don't provide a JSON file, the engine will automatically read ID3 tags from MP3 files for artist and title information.
+A new **Theme Options** button will appear below the Options button in the main menu.
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
-The Theme Engine consists of 5 core Lua files:
+### `menu.lua` (loader)
 
-| File | Purpose |
-|---|---|
-| `theme_engine_css.lua` | CSS injection and theme stylesheet generation |
-| `theme_engine_apply.lua` | Theme application logic and `CallJS` bridge |
-| `theme_engine_backgrounds.lua` | Background scanning, categorization, and Workshop icon fetching |
-| `theme_engine_music.lua` | Music player system with ID3 reading, playlists, and volume control |
-| `theme_engine_injection.lua` | UI HTML/JS template, AngularJS route registration, and all interactive JS logic |
+The entry point. On startup it scans for all `theme_engine/*.lua` files from the Workshop addon or local `LUA` path, then loads them in alphabetical order with `theme_engine_injection.lua` forced last. Each file is wrapped in `pcall` so a single error does not crash the menu. A `GameContentChanged` hook handles hot-reloading when the addon is enabled or disabled at runtime.
 
-### How It Works
+### `theme_engine_apply.lua`
 
-1. **`menu.lua`** detects the addon and safely loads all 5 files via `pcall`
-2. **`theme_engine_css.lua`** generates CSS for the selected theme (dark/light)
-3. **`theme_engine_apply.lua`** injects the CSS into GMod's Chromium-based menu via `QueueJavascript`
-4. **`theme_engine_injection.lua`** registers a custom AngularJS route (`#/theme/`) and injects the Theme Options page as an HTML template with embedded JavaScript
-5. The JS hooks into GMod's `lua.Run` (with idempotent guards to prevent re-hooking) to save map and server settings across sessions via `localStorage`
-6. **`theme_engine_backgrounds.lua`** scans all mounted addons and local files for backgrounds
-7. **`theme_engine_music.lua`** scans for music files, reads ID3 tags, and manages the HTML5 Audio player
+Provides `DarkThemeEngine.CallJS()`, the bridge between Lua and the CEF menu panel. Also contains `ApplyTheme()` which injects or removes the dark/light CSS stylesheets, and `ApplyLoadingCSS()` which styles the map loading screen.
 
-### Safety Features
+### `theme_engine_css.lua`
 
-- ✅ **Idempotent JS hooks** - Global flags prevent `lua.Run`, `SetLastMap`, and `UpdateServerSettings` from being wrapped multiple times during re-injection
-- ✅ **pcall-protected loading** - Each file is loaded inside `pcall()` so a single error doesn't crash the entire menu
-- ✅ **Automatic overlay cleanup** - All fullscreen modals (background preview, music preview, workshop guide) are automatically removed on page navigation via `hashchange` and Angular's `$routeChangeSuccess`
-- ✅ **Addon-locked loader** - The `menu.lua` loader only runs code from Workshop addon `3679295208`, preventing malicious addons from injecting code
+Defines all CSS strings for the dark theme (menu, navbar, new game, server browser, workshop), the light mode extra, and the loading screen dark style. Editing this file changes the visual output of the theme without touching any logic.
+
+### `theme_engine_backgrounds.lua`
+
+Scans all mounted addons and local paths for background images, builds a categorized list, and caches it to `data/theme_engine_data/backgrounds_cache.json` for fast startup. Manages per-background and per-category enable/disable state. Overrides GMod's `DrawBackground`, `ChangeBackground`, and `AddBackgroundImage` globals to take control of the background rendering loop.
+
+### `theme_engine_music.lua`
+
+Scans `sound/theme_engine_music/` (GAME and MOD paths) and `data/theme_engine_music/` for audio files. Reads ID3 tags from MP3 files. Loads metadata from `te_music_meta.json`. Sends the track list to the JS player via `SendMusicToJS()`. Polls in-game state every second to pause music when a map is loaded and resume when returning to the menu.
+
+### `theme_engine_misc.lua`
+
+Handles the Miscellaneous tab: spawnmenu skin detection (scans Lua files for `derma.DefineSkin` calls), custom background downloads via `http.Fetch`, and font loading from `data/theme_engine_fonts/`.
+
+### `theme_engine_changelog.lua`
+
+Defines `DarkThemeEngine.Changelog` and `DarkThemeEngine.Credits` tables. Edit this file to add new changelog entries - the in-game Changelog modal reads directly from it.
+
+### `theme_engine_html.lua`
+
+Contains `DarkThemeEngine._UI.HTML` - the full HTML/CSS template for the Theme Options page. This is the Angular template registered at the `#/theme/` route.
+
+### `theme_engine_js.lua`
+
+Contains `DarkThemeEngine._UI.JS` - all client-side JavaScript logic for the UI: tab switching, background/music/spawnmenu/font rendering, preview modals, the Help system, and the Changelog panel. Also contains `BuildRouteJS()` which registers the Angular route, and `AnniversaryJS` for the November 29 event.
+
+### `theme_engine_injection.lua`
+
+The final file loaded. Hooks `pnlMainMenu.HTML.OnDocumentReady` to inject the JS, CSS, route registration, and initial data in the correct order. Falls back to a 1-second retry via `MenuStart` if the hook fires too early.
+
+### `theme_engine_spawnmenu.lua` (clientside)
+
+Loaded via `autorun/theme_engine_loader.lua`. Reads the selected spawnmenu skin from `settings.json` and applies it in-game by overriding the `ForceDermaSkin` hook. Polls every 2 seconds to pick up changes made in the Theme Engine UI.
+
+---
+
+## Safety
+
+- Each file is loaded inside `pcall` - a single error does not crash the menu
+- All JS hooks (`lua.Run`, `SetLastMap`, `UpdateServerSettings`) are wrapped with idempotent guards to prevent double-hooking on re-injection
+- All fullscreen modals are removed automatically on page navigation
+- `DarkThemeEngine.SaveSettings()` is wrapped in `pcall` - a disk error does not crash the addon
 
 ---
 
