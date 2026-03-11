@@ -1,6 +1,7 @@
 DarkThemeEngine = DarkThemeEngine or {}
 DarkThemeEngine.Settings = DarkThemeEngine.Settings or {}
 DarkThemeEngine.AllMusic = DarkThemeEngine.AllMusic or {}
+DarkThemeEngine._MusicCovers = DarkThemeEngine._MusicCovers or {}
 
 local ALL_MUSIC_LOOKUP = {}
 local IsMusicPlaying = false
@@ -146,12 +147,13 @@ local function SeedGameMusic()
             trackData.album = album or ""
 
             local lowerName = string.lower(name)
+            local coverData = nil
 
             local jsonMeta = CustomJsonMeta[name] or CustomJsonMeta[lowerName]
             if jsonMeta then
                 if jsonMeta.title then trackData.title = tostring(jsonMeta.title) end
                 if jsonMeta.artist then trackData.artist = tostring(jsonMeta.artist) end
-                if jsonMeta.cover then trackData.cover = tostring(jsonMeta.cover) end
+                if jsonMeta.cover then coverData = tostring(jsonMeta.cover) end
                 if jsonMeta.desc then trackData.desc = tostring(jsonMeta.desc) end
                 if jsonMeta.youtube then trackData.youtube = tostring(jsonMeta.youtube) end
             else
@@ -167,9 +169,13 @@ local function SeedGameMusic()
                     if tags then
                         if tags.title then trackData.title = tags.title end
                         if tags.artist then trackData.artist = tags.artist end
-                        if tags.cover then trackData.cover = tags.cover end
+                        if tags.cover then coverData = tags.cover end
                     end
                 end
+            end
+
+            if coverData then
+                DarkThemeEngine._MusicCovers[jsPath] = coverData
             end
 
             table.insert(DarkThemeEngine.AllMusic, trackData)
@@ -211,12 +217,25 @@ local function SeedGameMusic()
         file.CreateDir("theme_engine_music")
     end
 
-    local files2, _ = file.Find("theme_engine_music/*", "DATA")
+    local files2, dirs2 = file.Find("theme_engine_music/*", "DATA")
     if files2 then
         for _, f in ipairs(files2) do
             local ext = string.lower(string.GetExtensionFromFilename(f) or "")
             if ext == "mp3" or ext == "wav" then
                 AddMusic("data/theme_engine_music/" .. f, f, "DATA", "theme_engine_music/" .. f)
+            end
+        end
+    end
+    if dirs2 then
+        for _, d in ipairs(dirs2) do
+            local albumFiles, _ = file.Find("theme_engine_music/" .. d .. "/*", "DATA")
+            if not albumFiles then continue end
+            for _, af in ipairs(albumFiles) do
+                local ext = string.lower(string.GetExtensionFromFilename(af) or "")
+                if ext == "mp3" or ext == "wav" then
+                    local jsPath = "data/theme_engine_music/" .. d .. "/" .. af
+                    AddMusic(jsPath, af, "DATA", "theme_engine_music/" .. d .. "/" .. af, d)
+                end
             end
         end
     end
@@ -248,21 +267,41 @@ function DarkThemeEngine.SendMusicToJS()
     local disabledMusic = settings.DisabledMusic or {}
     local themeOpts = settings.ThemeOptions or {}
 
-    local currentTrack = ""
-    if DarkThemeEngine._CurrentMusicPath then
-        currentTrack = DarkThemeEngine._CurrentMusicPath
-    end
+    local currentTrack = DarkThemeEngine._CurrentMusicPath or ""
 
     local disabledAlbums = (DarkThemeEngine.Settings or {}).DisabledAlbums or {}
     local js = string.format(
-        "if(window.DarkThemeEngine_ReceiveMusic) window.DarkThemeEngine_ReceiveMusic(%s, %s, %s, %s, '%s');",
-        CachedMusicJSON,
-        util.TableToJSON(disabledMusic),
-        util.TableToJSON(themeOpts),
-        util.TableToJSON(disabledAlbums),
+        "if(window.DarkThemeEngine_ReceiveMusic) window.DarkThemeEngine_ReceiveMusic(JSON.parse(\"%s\"), JSON.parse(\"%s\"), JSON.parse(\"%s\"), JSON.parse(\"%s\"), '%s');",
+        string.JavascriptSafe(CachedMusicJSON),
+        string.JavascriptSafe(util.TableToJSON(disabledMusic)),
+        string.JavascriptSafe(util.TableToJSON(themeOpts)),
+        string.JavascriptSafe(util.TableToJSON(disabledAlbums)),
         string.JavascriptSafe(currentTrack)
     )
     DarkThemeEngine.CallJS(js)
+
+    DarkThemeEngine._SendCoversToJS()
+end
+
+function DarkThemeEngine._SendCoversToJS()
+    timer.Remove("DarkTheme_CoverSend")
+    local covers = {}
+    for path, data in pairs(DarkThemeEngine._MusicCovers or {}) do
+        table.insert(covers, { path = path, data = data })
+    end
+    if #covers == 0 then return end
+    local idx = 0
+    timer.Create("DarkTheme_CoverSend", 0.05, #covers, function()
+        idx = idx + 1
+        if idx > #covers then return end
+        local c = covers[idx]
+        if not IsValid(pnlMainMenu) then return end
+        DarkThemeEngine.CallJS(string.format(
+            "if(window._DT_SetCover) window._DT_SetCover('%s', '%s');",
+            string.JavascriptSafe(c.path),
+            string.JavascriptSafe(c.data)
+        ))
+    end)
 end
 
 function DarkTheme_PlayStartupMusic()
@@ -307,7 +346,15 @@ function DarkTheme_PlayStartupMusic()
             table.insert(validTracks, snd)
         end
     end
-    local jsMusicArray = util.TableToJSON(validTracks)
+    local lightTracks = {}
+    for _, t in ipairs(validTracks) do
+        local copy = {}
+        for k, v in pairs(t) do
+            if k ~= "cover" then copy[k] = v end
+        end
+        table.insert(lightTracks, copy)
+    end
+    local jsMusicArray = util.TableToJSON(lightTracks)
 
     local curVol = themeOpts.Music_Volume
     if curVol == nil then
@@ -318,7 +365,7 @@ function DarkTheme_PlayStartupMusic()
 
     if IsValid(pnlMainMenu) then
         local js = string.format([[
-            var allTracks    = %s;
+            var allTracks    = JSON.parse("%s");
             var isPlaylistMode = %s;
             var isShuffleMode  = %s;
             window.DarkTheme_MusicVolume = Math.max(0, Math.min(1, %s));
@@ -332,7 +379,6 @@ function DarkTheme_PlayStartupMusic()
                 };
             }
 
-            // Build playlist filtering out formats the browser can't play
             var newPlaylist = [];
             for (var _ti = 0; _ti < allTracks.length; _ti++) {
                 var _tp = allTracks[_ti].path;
@@ -365,6 +411,7 @@ function DarkTheme_PlayStartupMusic()
                     window.DarkTheme_MusicIndex = window.DarkTheme_MusicPlaylist.indexOf(currentTrackPath);
                     shouldStartNewTrack = false;
                     if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic(currentTrackPath);
+                    if (window.DarkThemeEngine_LuaCall) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + currentTrackPath + "')");
                 } else {
                     if (window.DarkTheme_AudioNode) {
                         window.DarkTheme_AudioNode.onended = null;
@@ -375,6 +422,8 @@ function DarkTheme_PlayStartupMusic()
                     window.DarkTheme_MusicIndex = window.DarkTheme_ShuffleMode
                         ? Math.floor(Math.random() * window.DarkTheme_MusicPlaylist.length)
                         : 0;
+                    currentTrackPath = window.DarkTheme_MusicPlaylist[window.DarkTheme_MusicIndex];
+                    
                     if (window._DT_TryPlayFn) {
                         window.removeEventListener('click',     window._DT_TryPlayFn, true);
                         window.removeEventListener('keydown',   window._DT_TryPlayFn, true);
@@ -408,16 +457,15 @@ function DarkTheme_PlayStartupMusic()
                     window.addEventListener('mousemove', window._DT_TryPlayFn, true);
                 }
 
-                // Safety: unlock if stuck for >30 seconds
+                window._DT_MusicLocked = false;
                 if (window._DT_LockTimer) clearTimeout(window._DT_LockTimer);
                 window.DarkTheme_PlayNextTrack = function(forceNext) {
                     if (!window.DarkTheme_MusicPlaylist || window.DarkTheme_MusicPlaylist.length === 0) return;
                     if (window._DT_MusicLocked) return;
                     window._DT_MusicLocked = true;
                     if (window._DT_LockTimer) clearTimeout(window._DT_LockTimer);
-                    window._DT_LockTimer = setTimeout(function() { window._DT_MusicLocked = false; }, 30000);
+                    window._DT_LockTimer = setTimeout(function() { window._DT_MusicLocked = false; }, 5000);
 
-                    // Skip failed tracks
                     var attempts = 0;
                     if (forceNext) {
                         do {
@@ -442,11 +490,34 @@ function DarkTheme_PlayStartupMusic()
                         window.DarkTheme_AudioNode = null;
                     }
                     if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic(trackPath);
+                    if (window.DarkThemeEngine_LuaCall) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + trackPath + "')");
+                    
                     var finalUrl = (trackPath.indexOf('sound/') === 0 || trackPath.indexOf('data/') === 0)
                         ? 'asset://garrysmod/' + trackPath
                         : 'asset://garrysmod/sound/' + trackPath;
                     var node = new Audio(finalUrl);
                     node.volume = (window.DarkTheme_MusicVolume != null) ? window.DarkTheme_MusicVolume : 0.6;
+                    
+                    window.DarkTheme_FormatTime = function(seconds) {
+                        if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
+                        var m = Math.floor(seconds / 60);
+                        var s = Math.floor(seconds %% 60);
+                        return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+                    };
+
+                    node.addEventListener('timeupdate', function() {
+                        var c = node.currentTime;
+                        var d = node.duration;
+                        if (!isNaN(d) && isFinite(d) && d > 0) {
+                            var pct = (c / d) * 100;
+                            var barEl = document.getElementById('music_progress_fill');
+                            if (barEl) barEl.style.width = pct + '%%';
+
+                            var lblEl = document.getElementById('music_time_label');
+                            if (lblEl) lblEl.textContent = window.DarkTheme_FormatTime(c) + " / " + window.DarkTheme_FormatTime(d);
+                        }
+                    });
+
                     window.DarkTheme_AudioNode = node;
                     var p = node.play();
                     if (p && p.catch) {
@@ -481,7 +552,12 @@ function DarkTheme_PlayStartupMusic()
                     };
                 };
 
-                if (shouldStartNewTrack) window.DarkTheme_PlayNextTrack(false);
+                if (shouldStartNewTrack) {
+                    if (window.DarkThemeEngine_SetCurrentMusic && window.DarkTheme_MusicPlaylist[window.DarkTheme_MusicIndex]) {
+                        window.DarkThemeEngine_SetCurrentMusic(window.DarkTheme_MusicPlaylist[window.DarkTheme_MusicIndex]);
+                    }
+                    window.DarkTheme_PlayNextTrack(false);
+                }
             } else {
                 if (window.DarkTheme_AudioNode) {
                     window.DarkTheme_AudioNode.onended = null;
@@ -491,7 +567,7 @@ function DarkTheme_PlayStartupMusic()
                 }
                 if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic('');
             }
-        ]], jsMusicArray, tostring(isPlaylist), tostring(isShuffle), tostring(curVol))
+        ]], string.JavascriptSafe(jsMusicArray), tostring(isPlaylist), tostring(isShuffle), tostring(curVol))
 
         DarkThemeEngine.CallJS(js)
         IsMusicPlaying = true

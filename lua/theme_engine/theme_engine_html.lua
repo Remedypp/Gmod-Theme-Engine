@@ -189,9 +189,17 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;">
                     <div style="flex:1;min-width:300px;">
                         <div style="color:#cbd5e1;font-size:0.95rem;line-height:1.5;margin-bottom:15px;">Customize your menu music. Click on any track to <strong>disable</strong> or <strong>enable</strong> it. Disabled tracks will not be played.<br><span style="font-size:0.85rem;color:#94a3b8;display:inline-block;margin-top:5px;">🎵 Add local files to: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;color:#cbd5e1;">sound/theme_engine_music/</code></span></div>
-                        <div class="active-bg-banner" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);">
-                            <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:50%;box-shadow:0 0 8px #3b82f6;"></span>
-                            <span id="music_now_playing" style="color:#60a5fa;font-weight:600;">Now Playing: None</span>
+                        <div class="active-bg-banner" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);width:100%;max-width:400px;display:flex;flex-direction:column;gap:8px;padding:10px 14px;">
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:50%;box-shadow:0 0 8px #3b82f6;flex-shrink:0;"></span>
+                                <span id="music_now_playing" style="color:#60a5fa;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Now Playing: None</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;width:100%;">
+                                <span id="music_time_label" style="font-size:0.75rem;color:#94a3b8;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;">00:00 / 00:00</span>
+                                <div id="music_progress_track" style="flex:1;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;position:relative;">
+                                    <div id="music_progress_fill" style="width:0%;height:100%;background:#3b82f6;border-radius:2px;transition:width 0.1s linear;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -377,7 +385,6 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
         if (b) b.classList.remove('ng-hide');
     }, 100);
     if (window.DarkThemeEngine_UpdateUI) setTimeout(window.DarkThemeEngine_UpdateUI, 50);
-    // Clean up any stale overlays from previous page visit
     if (window.DarkThemeEngine_CleanupAllOverlays) window.DarkThemeEngine_CleanupAllOverlays();
 })();
 </script>

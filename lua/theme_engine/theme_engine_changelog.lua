@@ -9,6 +9,14 @@ DarkThemeEngine.Credits = {
 }
 
 DarkThemeEngine.Changelog = {
+    { ver = "0.2.1-beta", tag = "patch", changes = {
+        "Fixed music not working with special characters in song names",
+        "Fixed blue flash between background transitions",
+        "Fixed game freezing when switching tabs in Theme Options",
+        "Optimized music and background loading performance",
+        "Spawnmenu skin list is now scrollable",
+        "Removed incompatible texture-only skin detection",
+    }},
     { ver = "0.2.0-beta", changes = {
         "NEW: Music Packs / Albums — organize tracks into subfolders inside data/theme_engine_music/",
         "NEW: Custom Font picker in Miscellaneous tab — includes local .ttf support",

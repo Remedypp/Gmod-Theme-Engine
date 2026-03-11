@@ -389,8 +389,7 @@ local function ChangeBackground(currentgm, force_swap)
         Size = 1, BaseSize = 1, Angle = 0,
         AngleVel = isNoZoom and 0 or -(5 / 30),
         SizeVel = isNoZoom and 0 or (0.3 / 30),
-        Alpha = isNoFade and 255 or 0,
-        AlphaFadeInVel = isNoFade and 90000 or (isStaticLoop and 50 or 255),
+        Alpha = 255,
         mat = mat, Name = img
     }
 
@@ -435,8 +434,6 @@ local function Think(tbl, isOutgoing)
 
     if isOutgoing and tbl.AlphaVel then
         tbl.Alpha = tbl.Alpha - tbl.AlphaVel * FrameTime()
-    elseif not isOutgoing then
-        tbl.Alpha = math.min(255, tbl.Alpha + tbl.AlphaFadeInVel * FrameTime())
     end
 end
 
@@ -472,6 +469,8 @@ local function CustomDrawBackground()
 
     if Active then Think(Active, false) Render(Active) end
     if Outgoing then Think(Outgoing, true) Render(Outgoing) end
+
+    if Outgoing and Outgoing.Alpha <= 0 then Outgoing.mat = nil; Outgoing = nil end
 
     local overlay = tonumber(GetThemeOptions().BG_Overlay) or 0
     if overlay > 0 then
@@ -623,22 +622,22 @@ function DarkThemeEngine.SendBackgroundsToJS()
     local bgOpts = GetThemeOptions()
 
     DarkThemeEngine.CallJS(string.format([[
-        window._DarkTheme_Backgrounds = %s;
-        window._DarkTheme_DisabledBgs = %s;
+        window._DarkTheme_Backgrounds = JSON.parse("%s");
+        window._DarkTheme_DisabledBgs = JSON.parse("%s");
         window._DarkTheme_ActiveBg = '%s';
-        window._DarkTheme_BgOptions = %s;
+        window._DarkTheme_BgOptions = JSON.parse("%s");
         if (window.DarkThemeEngine_RenderBackgroundsUI) window.DarkThemeEngine_RenderBackgroundsUI();
     ]],
-        CachedBgJSON or "[]",
-        util.TableToJSON(disabled),
+        string.JavascriptSafe(CachedBgJSON or "[]"),
+        string.JavascriptSafe(util.TableToJSON(disabled)),
         string.JavascriptSafe(activeName),
-        util.TableToJSON({
+        string.JavascriptSafe(util.TableToJSON({
             BG_Static       = bgOpts.BG_Static       or false,
             BG_NoZoom       = bgOpts.BG_NoZoom       or false,
             BG_NoFade       = bgOpts.BG_NoFade       or false,
             BG_SwapInterval = bgOpts.BG_SwapInterval or 20,
             BG_Overlay      = bgOpts.BG_Overlay      or 0,
-        })
+        }))
     ))
 end
 

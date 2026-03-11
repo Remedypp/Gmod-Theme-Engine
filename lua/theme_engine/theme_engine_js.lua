@@ -21,7 +21,7 @@ window.DarkThemeEngine_SwitchTab = function(tabName, btnEl) {
     if (tabName === 'misc') {
         if (window._DarkTheme_MiscDirty) {
             window._DarkTheme_MiscDirty = false;
-            DarkThemeEngine_LuaCall('DarkThemeEngine.InvalidateSpawnmenuCache(); DarkThemeEngine.SendSpawnmenuToJS()');
+            DarkThemeEngine_LuaCall('DarkThemeEngine.SendSpawnmenuToJS()');
         } else if (window._DT_SpawnmenuSkins && window._DT_SpawnmenuSkins.length > 0) {
             var _active = window._DT_LastSpawnmenuActive || 'default';
             window.DarkThemeEngine_RenderSpawnmenuUI(window._DT_SpawnmenuSkins, _active);
@@ -569,11 +569,19 @@ window._DarkTheme_DisabledMusic = {};
 window._DarkTheme_MusicOptions = {};
 window._DarkTheme_ActiveMusic = 'None';
 window.DarkThemeEngine_ReceiveMusic = function(tracks, disabled, opts, disabledAlbums, currentTrack) {
+    var oldLength = window._DarkTheme_Music ? window._DarkTheme_Music.length : -1;
+    
     window._DarkTheme_Music = tracks || [];
     window._DarkTheme_DisabledMusic = disabled || {};
     window._DarkTheme_MusicOptions = opts || {};
     window._DarkTheme_DisabledAlbums = disabledAlbums || {};
-    window._DarkTheme_ActiveMusic = currentTrack || 'None';
+    
+    if (window.DarkThemeEngine_SetCurrentMusic) {
+        window.DarkThemeEngine_SetCurrentMusic(currentTrack);
+    } else {
+        window._DarkTheme_ActiveMusic = currentTrack || 'None';
+    }
+
     for (var i = 0; i < window._DarkTheme_Music.length; i++) {
         var t = window._DarkTheme_Music[i];
         if (!t._parsed) {
@@ -600,7 +608,20 @@ window.DarkThemeEngine_ReceiveMusic = function(tracks, disabled, opts, disabledA
             t._parsed = true;
         }
     }
-    DarkThemeEngine_RenderMusicUI();
+    
+    var newLength = window._DarkTheme_Music.length;
+    
+    var chkEnable = document.getElementById('opt_music_enable');
+    var chkPlaylist = document.getElementById('opt_music_playlist');
+    var chkShuffle = document.getElementById('opt_music_shuffle');
+    if (chkEnable) chkEnable.checked = !!opts.EnableMusic;
+    if (chkPlaylist) chkPlaylist.checked = !!opts.Music_PlaylistMode;
+    if (chkShuffle) chkShuffle.checked = !!opts.Music_Shuffle;
+    
+    if (!window._DT_MusicInitialRenderDone || oldLength !== newLength) {
+        window._DT_MusicInitialRenderDone = true;
+        DarkThemeEngine_RenderMusicUI();
+    }
 };
 window._DarkTheme_DisabledAlbums = {};
 window._DarkTheme_SelectedAlbum  = null;
@@ -655,6 +676,33 @@ window.DarkThemeEngine_RenderAlbumCards = function() {
     if (trList)   trList.style.display = 'none';
     window._DarkTheme_SelectedAlbum = null;
 };
+window.DarkThemeEngine_ToggleTrackJS = function(elem, path) {
+    if (!window._DarkTheme_DisabledMusic) window._DarkTheme_DisabledMusic = {};
+    var disabled = window._DarkTheme_DisabledMusic;
+    var isDisabled = !!disabled[path];
+    var statusDiv = elem.querySelector('.music-status-label');
+    if (isDisabled) {
+        disabled[path] = false;
+        delete disabled[path];
+        elem.classList.remove('music-disabled');
+        if (statusDiv) {
+            statusDiv.textContent = 'ENABLED';
+            statusDiv.style.background = 'rgba(16,185,129,0.15)';
+            statusDiv.style.color = '#34d399';
+            statusDiv.style.border = '1px solid rgba(16,185,129,0.3)';
+        }
+    } else {
+        disabled[path] = true;
+        elem.classList.add('music-disabled');
+        if (statusDiv) {
+            statusDiv.textContent = 'DISABLED';
+            statusDiv.style.background = 'rgba(148,163,184,0.1)';
+            statusDiv.style.color = '#94a3b8';
+            statusDiv.style.border = '1px solid rgba(148,163,184,0.2)';
+        }
+    }
+    DarkThemeEngine_LuaCall('DarkThemeEngine_ToggleMusic("' + path.replace(/"/g, '\\"') + '")');
+};
 window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     window._DarkTheme_SelectedAlbum = albumKey;
     var albums = window._DarkTheme_Albums.length > 0 ? window._DarkTheme_Albums : window.DarkThemeEngine_BuildAlbums(window._DarkTheme_Music || []);
@@ -672,9 +720,9 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     html += '<div style="font-size:1.1rem;font-weight:600;color:#f8fafc;margin-bottom:8px;">' + albObj.display + '</div>';
     html += '<div style="display:flex;gap:8px;">';
     if (isAlbumDisabled) {
-        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=false;delete window._DarkTheme_DisabledAlbums[\'' + safeKey + '\'];DarkThemeEngine_LuaCall(\'DarkThemeEngine_EnableAlbum(\\x22' + safeKey + '\\x22)\');setTimeout(function(){DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')},200)">✓ Enable Album</button>';
+        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=false;delete window._DarkTheme_DisabledAlbums[\'' + safeKey + '\'];DarkThemeEngine_LuaCall(\'DarkThemeEngine_EnableAlbum(\\x22' + safeKey + '\\x22)\');DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')">✓ Enable Album</button>';
     } else {
-        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=true;DarkThemeEngine_LuaCall(\'DarkThemeEngine_DisableAlbum(\\x22' + safeKey + '\\x22)\');setTimeout(function(){DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')},200)">🚫 Disable Album</button>';
+        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=true;DarkThemeEngine_LuaCall(\'DarkThemeEngine_DisableAlbum(\\x22' + safeKey + '\\x22)\');DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')">🚫 Disable Album</button>';
     }
     html += '</div></div></div>';
     html += '<div class="music-list">';
@@ -685,7 +733,7 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
         var safePath = t.path.replace(/'/g, "\\'").replace(/"/g, '');
         var globalIdx = allTracks.indexOf(t);
         html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '"';
-        html += ' onclick="DarkThemeEngine_LuaCall(\'DarkThemeEngine_ToggleMusic(\\x22' + safePath + '\\x22)\');setTimeout(function(){DarkThemeEngine_LuaCall(\'DarkThemeEngine.SendMusicToJS()\')},200)"';
+        html += ' onclick="window.DarkThemeEngine_ToggleTrackJS(this, \'' + safePath.replace(/"/g, '') + '\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')"';
         html += ' oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + globalIdx + ')">';
         html += '<div style="width:48px;height:48px;background:rgba(0,0,0,0.4);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">';
         if (t.cover) html += '<img src="' + t.cover + '" style="width:100%;height:100%;object-fit:cover;" />';
@@ -695,8 +743,8 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1rem;font-weight:bold;color:#f8fafc;">' + (t.title || t.name || 'Unknown') + '</span>';
         html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;">' + (t.artist || 'Unknown Artist') + '</span>';
         html += '</div>';
-        if (!isDisabled) html += '<div style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
-        else html += '<div style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
+        if (!isDisabled) html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
+        else html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
         html += '</div>';
     }
     html += '</div>';
@@ -709,14 +757,32 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     if (typeof lua !== 'undefined' && lua.PlaySound) lua.PlaySound('garrysmod/ui_click.wav');
 };
 window.DarkThemeEngine_SetCurrentMusic = function(path) {
+    var previousMusic = window._DarkTheme_ActiveMusic;
     window._DarkTheme_ActiveMusic = path || 'None';
     var npEl = document.getElementById('music_now_playing');
     if (npEl) {
         npEl.textContent = 'Now Playing: ' + (path && path !== '' ? path.split('/').pop().replace(/\.[^/.]+$/, '') : 'None');
     }
-    DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + (path || '') + "')");
+    window._DarkTheme_CurrentMusicPathJS = path || '';
+    
+    if (previousMusic !== path) {
+        var barEl = document.getElementById('music_progress_fill');
+        if (barEl) barEl.style.width = '0%';
+        var lblEl = document.getElementById('music_time_label');
+        if (lblEl) lblEl.textContent = '00:00 / 00:00';
+    }
 };
 window.DarkThemeEngine_InjectMiniPlayer = function() {};
+window._DT_SetCover = function(path, coverUrl) {
+    var tracks = window._DarkTheme_Music || [];
+    for (var i = 0; i < tracks.length; i++) {
+        if (tracks[i].path === path) {
+            tracks[i].cover = coverUrl;
+            break;
+        }
+    }
+    var imgs = document.querySelectorAll('.music-track img');
+};
 window._DT_SpawnmenuSkins = [];
 window.DarkThemeEngine_RenderSpawnmenuUI = function(skins, activeSkin) {
     var container = document.getElementById('misc_spawnmenu_list');
@@ -728,7 +794,7 @@ window.DarkThemeEngine_RenderSpawnmenuUI = function(skins, activeSkin) {
         container.innerHTML = '<div style="color:#64748b;font-size:0.9rem;padding:10px 0;">No spawnmenu skins detected. Install a spawnmenu theme addon.</div>';
         return;
     }
-    var html = '<div style="display:flex;flex-direction:column;gap:6px;">';
+    var html = '<div id="spawn_skin_scroll" style="display:flex;flex-direction:column;gap:6px;max-height:374px;overflow-y:auto;padding-right:4px;">';
     for (var i = 0; i < skins.length; i++) {
         var s = skins[i];
         var isActive = (s.name === activeSkin);
@@ -746,7 +812,7 @@ window.DarkThemeEngine_RenderSpawnmenuUI = function(skins, activeSkin) {
             iconHtml = '<img id="spawn_icon_' + wsidStr + '" style="display:none;' + iconStyle + '" />'
                      + '<div id="spawn_ph_' + wsidStr + '" style="width:48px;height:48px;border-radius:8px;background:rgba(59,130,246,0.08);display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;border:1px solid rgba(59,130,246,0.15);">☁️</div>';
         }
-        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:background 0.15s;'
+        html += '<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:background 0.15s;flex-shrink:0;'
              + (isActive ? 'background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.35);'
                          : 'background:rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.04);')
              + '" onclick="DarkThemeEngine_LuaCall(\'DarkTheme_SetSpawnmenuSkin(\\x22' + safeN + '\\x22)\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')">';
@@ -758,8 +824,10 @@ window.DarkThemeEngine_RenderSpawnmenuUI = function(skins, activeSkin) {
         if (isActive) html += '<span style="font-size:0.78rem;font-weight:600;color:#3b82f6;background:rgba(59,130,246,0.15);padding:3px 10px;border-radius:12px;flex-shrink:0;">Active</span>';
         html += '</div>';
     }
-    html += '<div style="margin-top:10px;font-size:0.8rem;color:#475569;text-align:center;">Changes apply the next time you open the Q menu in-game.</div>';
     html += '</div>';
+    html += '<style>#spawn_skin_scroll::-webkit-scrollbar{width:5px}#spawn_skin_scroll::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);border-radius:3px}#spawn_skin_scroll::-webkit-scrollbar-thumb{background:rgba(59,130,246,0.4);border-radius:3px}#spawn_skin_scroll::-webkit-scrollbar-thumb:hover{background:rgba(59,130,246,0.7)}</style>';
+    html += '<div style="margin-top:14px;padding:12px 16px;border-radius:8px;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.2);font-size:0.82rem;color:#eab308;line-height:1.5;">⚠️ <strong>Note:</strong> Addons that replace the spawnmenu using textures (PNGs) are not compatible with Theme Engine. These addons override the default textures at engine level and cannot be controlled from Lua.</div>';
+    html += '<div style="margin-top:10px;font-size:0.8rem;color:#475569;text-align:center;">Changes apply the next time you open the Q menu in-game.</div>';
     container.innerHTML = html;
 };
 window.SetDarkThemeSpawnmenuImage = function(wsid, url) {
@@ -774,7 +842,6 @@ window.SetDarkThemeSpawnmenuImage = function(wsid, url) {
 window.DarkThemeEngine_ApplyMenuFont = function(fontName) {
     var prev = document.getElementById('misc_font_preview');
     if (prev) prev.style.fontFamily = (fontName && fontName !== '') ? ("'" + fontName + "', sans-serif") : '';
-    // Use requestAnimationFrame to avoid triggering a synchronous reflow/repaint
     requestAnimationFrame(function() {
         var el = document.getElementById('dt_menu_font_style');
         if (!el) {
@@ -829,7 +896,6 @@ window.DarkThemeEngine_ToggleFontDropdown = function() {
         if (tc) tc.style.overflow = '';
         return;
     }
-    // Temporarily allow overflow on the container so absolute dropdown isn't clipped
     var tc = document.querySelector('.theme-container');
     if (tc) tc.style.overflow = 'visible';
     var allFonts = _DT_BUILTIN_FONTS.slice();
@@ -1027,7 +1093,7 @@ window.DarkThemeEngine_RenderMusicUI = function() {
                 var idx = filtered[i].originalIndex;
                 var isDisabled = !!disabled[t.path];
                 var safePath = t.path.replace(/'/g, "\\'");
-                html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '" onclick="DarkThemeEngine_LuaCall(\'DarkThemeEngine_ToggleMusic(\\x22' + safePath.replace(/"/g, '') + '\\x22)\');setTimeout(function(){DarkThemeEngine_LuaCall(\'DarkThemeEngine.SendMusicToJS()\')},200)" oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + idx + ')">';
+                html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '" onclick="window.DarkThemeEngine_ToggleTrackJS(this, \'' + safePath.replace(/"/g, '') + '\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')" oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + idx + ')">';
                 html += '<div style="width:48px;height:48px;background:rgba(0,0,0,0.4);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">';
                 if (t.cover) html += '<img src="' + t.cover + '" style="width:100%;height:100%;object-fit:cover;" />';
                 else html += '<span style="font-size:24px;color:#94a3b8;">🎵</span>';
@@ -1036,8 +1102,8 @@ window.DarkThemeEngine_RenderMusicUI = function() {
                 html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1.1rem;font-weight:bold;margin-bottom:2px;color:#f8fafc;" title="' + (t.title || '').replace(/"/g, '&quot;') + '">' + (t.title || 'Unknown') + '</span>';
                 html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;font-weight:500;" title="' + (t.artist || '').replace(/"/g, '&quot;') + '">' + (t.artist || 'Unknown Artist') + '</span>';
                 html += '</div>';
-                if (!isDisabled) html += '<div style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
-                else html += '<div style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
+                if (!isDisabled) html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
+                else html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
                 html += '</div>';
             }
             html += '</div>';
@@ -1058,7 +1124,12 @@ window.DarkThemeEngine_RenderMusicUI = function() {
         }
         var statusContainer = document.getElementById('music_track_list');
         if (statusContainer) { statusContainer.innerHTML = html; statusContainer.style.display = 'block'; }
-        window.DarkThemeEngine_RenderAlbumCards();
+        
+        if (window._DarkTheme_SelectedAlbum !== null) {
+            window.DarkThemeEngine_ShowAlbumDetail(window._DarkTheme_SelectedAlbum);
+        } else {
+            window.DarkThemeEngine_RenderAlbumCards();
+        }
     }
 };
 window.DarkThemeEngine_OpenMusicPreview = function(index) {

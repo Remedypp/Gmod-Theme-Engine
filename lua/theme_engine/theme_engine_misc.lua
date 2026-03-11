@@ -7,8 +7,10 @@ local BUILTIN_SKIN_NAMES = {
     ["derma"]   = true, ["Derma"]   = true,
 }
 
+
 local function ScanSpawnmenuSkins()
     if _cachedSkins then return _cachedSkins end
+
 
     local skins = {}
     local seen  = {}
@@ -46,8 +48,7 @@ local function ScanSpawnmenuSkins()
             if not seen[skinName]
             and not seenDisplay[displayKey]
             and not BUILTIN_SKIN_NAMES[skinName]
-            and #skinName    >= 3
-            and #displayName >= 4 then
+            and #skinName >= 2 then
                 seen[skinName]      = true
                 seenDisplay[displayKey] = true
                 table.insert(skins, {
@@ -79,19 +80,26 @@ local function ScanSpawnmenuSkins()
         end
     end
 
-    -- This Scan all files from GAME path and bla bla you know
-    for _, pattern in ipairs(PATTERNS) do
-        local prefix = pattern:match("^(.*%/)%*") or ""
-        for _, fname in ipairs(file.Find(pattern, "GAME") or {}) do
-            local content = file.Read(prefix .. fname, "GAME")
-            if not content then continue end
-            local info       = fileToAddon[fname]
-            local addonTitle = info and info.title or nil
-            local wsid       = info and info.wsid  or ""
-            local isLocal    = not info or info.isLocal
-            TryExtract(content, addonTitle or "Workshop Addon", wsid, isLocal)
+    local scannedFiles = {}
+    local function ScanPathID(pathID)
+        for _, pattern in ipairs(PATTERNS) do
+            local prefix = pattern:match("^(.*%/)%*") or ""
+            for _, fname in ipairs(file.Find(pattern, pathID) or {}) do
+                if scannedFiles[fname] then continue end
+                local content = file.Read(prefix .. fname, pathID)
+                if not content then continue end
+                scannedFiles[fname] = true
+                local info       = fileToAddon[fname]
+                local addonTitle = info and info.title or nil
+                local wsid       = info and info.wsid  or ""
+                local isLocal    = not info or info.isLocal
+                TryExtract(content, addonTitle or "Workshop Addon", wsid, isLocal)
+            end
         end
     end
+
+    ScanPathID("GAME")
+    ScanPathID("LUA")
 
     _cachedSkins = skins
     return skins
@@ -107,8 +115,8 @@ function DarkThemeEngine.SendSpawnmenuToJS()
     local active = DarkThemeEngine.Settings.SpawnMenuSkin or "default"
 
     DarkThemeEngine.CallJS(string.format(
-        "if(window.DarkThemeEngine_RenderSpawnmenuUI) window.DarkThemeEngine_RenderSpawnmenuUI(%s, '%s');",
-        util.TableToJSON(skins),
+        "if(window.DarkThemeEngine_RenderSpawnmenuUI) window.DarkThemeEngine_RenderSpawnmenuUI(JSON.parse(\"%s\"), '%s');",
+        string.JavascriptSafe(util.TableToJSON(skins)),
         string.JavascriptSafe(active)
     ))
 
@@ -126,8 +134,8 @@ function DarkTheme_SetSpawnmenuSkin(skinName)
     DarkThemeEngine.SaveSettings()
     local skins = _cachedSkins or ScanSpawnmenuSkins()
     DarkThemeEngine.CallJS(string.format(
-        "if(window.DarkThemeEngine_RenderSpawnmenuUI) window.DarkThemeEngine_RenderSpawnmenuUI(%s, '%s');",
-        util.TableToJSON(skins),
+        "if(window.DarkThemeEngine_RenderSpawnmenuUI) window.DarkThemeEngine_RenderSpawnmenuUI(JSON.parse(\"%s\"), '%s');",
+        string.JavascriptSafe(util.TableToJSON(skins)),
         string.JavascriptSafe(skinName)
     ))
 end
@@ -177,8 +185,8 @@ function DarkThemeEngine.SendFontsToJS()
         table.insert(fonts, { name = name, url = assetPath })
     end
     DarkThemeEngine.CallJS(string.format(
-        "if(window.DarkThemeEngine_LoadLocalFonts) window.DarkThemeEngine_LoadLocalFonts(%s);",
-        util.TableToJSON(fonts)
+        "if(window.DarkThemeEngine_LoadLocalFonts) window.DarkThemeEngine_LoadLocalFonts(JSON.parse(\"%s\"));",
+        string.JavascriptSafe(util.TableToJSON(fonts))
     ))
 end
 
