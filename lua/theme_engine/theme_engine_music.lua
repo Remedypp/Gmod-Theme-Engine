@@ -411,7 +411,7 @@ function DarkTheme_PlayStartupMusic()
                     window.DarkTheme_MusicIndex = window.DarkTheme_MusicPlaylist.indexOf(currentTrackPath);
                     shouldStartNewTrack = false;
                     if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic(currentTrackPath);
-                    if (window.DarkThemeEngine_LuaCall) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + currentTrackPath + "')");
+                    if (window.DarkThemeEngine_LuaCall && window.DarkThemeEngine_SafePathForLua) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + window.DarkThemeEngine_SafePathForLua(currentTrackPath) + "')");
                 } else {
                     if (window.DarkTheme_AudioNode) {
                         window.DarkTheme_AudioNode.onended = null;
@@ -490,7 +490,7 @@ function DarkTheme_PlayStartupMusic()
                         window.DarkTheme_AudioNode = null;
                     }
                     if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic(trackPath);
-                    if (window.DarkThemeEngine_LuaCall) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + trackPath + "')");
+                    if (window.DarkThemeEngine_LuaCall && window.DarkThemeEngine_SafePathForLua) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + window.DarkThemeEngine_SafePathForLua(trackPath) + "')");
                     
                     var finalUrl = (trackPath.indexOf('sound/') === 0 || trackPath.indexOf('data/') === 0)
                         ? 'asset://garrysmod/' + trackPath

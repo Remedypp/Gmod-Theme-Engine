@@ -655,11 +655,11 @@ window.DarkThemeEngine_RenderAlbumCards = function() {
     for (var i = 0; i < albums.length; i++) {
         var alb = albums[i];
         var isAlbumDisabled = !!disabledAlbums[alb.key];
-        var safeKey = alb.key.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        var encodedKey = encodeURIComponent(alb.key);
         var icon = alb.key === ''
             ? '<div style="width:70px;height:70px;border-radius:8px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;border:1px solid rgba(59,130,246,0.2);">🎵</div>'
             : '<div style="width:70px;height:70px;border-radius:8px;background:rgba(16,185,129,0.1);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;border:1px solid rgba(16,185,129,0.2);">💿</div>';
-        html += '<div class="cat-card" style="' + (isAlbumDisabled ? 'opacity:0.5;' : '') + '" onclick="DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')">';
+        html += '<div class="cat-card" style="' + (isAlbumDisabled ? 'opacity:0.5;' : '') + '" data-album="' + encodedKey + '" onclick="DarkThemeEngine_ShowAlbumDetail(decodeURIComponent(this.getAttribute(\'data-album\')))">';
         html += icon;
         html += '<div style="flex:1;overflow:hidden;">';
         html += '<div style="font-size:1rem;font-weight:600;color:#f8fafc;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + alb.display + '</div>';
@@ -676,15 +676,34 @@ window.DarkThemeEngine_RenderAlbumCards = function() {
     if (trList)   trList.style.display = 'none';
     window._DarkTheme_SelectedAlbum = null;
 };
+window.DarkThemeEngine_SafePathForLua = function(p) {
+    return p.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/'/g, "\\'");
+};
 window.DarkThemeEngine_ToggleTrackJS = function(elem, path) {
+    if (!path && elem && elem.getAttribute) {
+        var raw = elem.getAttribute('data-path');
+        if (raw) path = decodeURIComponent(raw);
+    }
+    if (!path) return;
+
+    var disabledAlbums = window._DarkTheme_DisabledAlbums || {};
+    var tracks = window._DarkTheme_Music || [];
+    for (var ti = 0; ti < tracks.length; ti++) {
+        if (tracks[ti].path === path) {
+            var albumKey = tracks[ti].album || '';
+            if (disabledAlbums[albumKey]) return;
+            break;
+        }
+    }
+
     if (!window._DarkTheme_DisabledMusic) window._DarkTheme_DisabledMusic = {};
     var disabled = window._DarkTheme_DisabledMusic;
     var isDisabled = !!disabled[path];
-    var statusDiv = elem.querySelector('.music-status-label');
+    var statusDiv = elem ? elem.querySelector('.music-status-label') : null;
     if (isDisabled) {
         disabled[path] = false;
         delete disabled[path];
-        elem.classList.remove('music-disabled');
+        if (elem) elem.classList.remove('music-disabled');
         if (statusDiv) {
             statusDiv.textContent = 'ENABLED';
             statusDiv.style.background = 'rgba(16,185,129,0.15)';
@@ -693,7 +712,7 @@ window.DarkThemeEngine_ToggleTrackJS = function(elem, path) {
         }
     } else {
         disabled[path] = true;
-        elem.classList.add('music-disabled');
+        if (elem) elem.classList.add('music-disabled');
         if (statusDiv) {
             statusDiv.textContent = 'DISABLED';
             statusDiv.style.background = 'rgba(148,163,184,0.1)';
@@ -701,7 +720,20 @@ window.DarkThemeEngine_ToggleTrackJS = function(elem, path) {
             statusDiv.style.border = '1px solid rgba(148,163,184,0.2)';
         }
     }
-    DarkThemeEngine_LuaCall('DarkThemeEngine_ToggleMusic("' + path.replace(/"/g, '\\"') + '")');
+    DarkThemeEngine_LuaCall('DarkThemeEngine_ToggleMusic("' + window.DarkThemeEngine_SafePathForLua(path) + '")');
+};
+window.DarkThemeEngine_ToggleAlbumJS = function(albumKey, enable) {
+    var disabledAlbums = window._DarkTheme_DisabledAlbums || {};
+    if (enable) {
+        disabledAlbums[albumKey] = false;
+        delete disabledAlbums[albumKey];
+        DarkThemeEngine_LuaCall('DarkThemeEngine_EnableAlbum("' + window.DarkThemeEngine_SafePathForLua(albumKey) + '")');
+    } else {
+        disabledAlbums[albumKey] = true;
+        DarkThemeEngine_LuaCall('DarkThemeEngine_DisableAlbum("' + window.DarkThemeEngine_SafePathForLua(albumKey) + '")');
+    }
+    window._DarkTheme_DisabledAlbums = disabledAlbums;
+    DarkThemeEngine_ShowAlbumDetail(albumKey);
 };
 window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     window._DarkTheme_SelectedAlbum = albumKey;
@@ -712,7 +744,7 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     for (var i = 0; i < albums.length; i++) { if (albums[i].key === albumKey) { albObj = albums[i]; break; } }
     if (!albObj) return;
     var isAlbumDisabled = !!disabledAlbums[albumKey];
-    var safeKey = albumKey.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    var encodedKey = encodeURIComponent(albumKey);
     var html = '';
     html += '<div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;background:rgba(0,0,0,0.25);padding:12px 18px;border-radius:12px;border-left:4px solid #3b82f6;backdrop-filter:blur(5px);">';
     html += '<button class="theme-btn" style="padding:10px 14px;background:rgba(255,255,255,0.1);border:none;" onclick="DarkThemeEngine_RenderAlbumCards();if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')">← Back</button>';
@@ -720,9 +752,9 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     html += '<div style="font-size:1.1rem;font-weight:600;color:#f8fafc;margin-bottom:8px;">' + albObj.display + '</div>';
     html += '<div style="display:flex;gap:8px;">';
     if (isAlbumDisabled) {
-        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=false;delete window._DarkTheme_DisabledAlbums[\'' + safeKey + '\'];DarkThemeEngine_LuaCall(\'DarkThemeEngine_EnableAlbum(\\x22' + safeKey + '\\x22)\');DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')">✓ Enable Album</button>';
+        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" data-album="' + encodedKey + '" onclick="DarkThemeEngine_ToggleAlbumJS(decodeURIComponent(this.getAttribute(\'data-album\')), true)">✓ Enable Album</button>';
     } else {
-        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="window._DarkTheme_DisabledAlbums[\'' + safeKey + '\']=true;DarkThemeEngine_LuaCall(\'DarkThemeEngine_DisableAlbum(\\x22' + safeKey + '\\x22)\');DarkThemeEngine_ShowAlbumDetail(\'' + safeKey + '\')">🚫 Disable Album</button>';
+        html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" data-album="' + encodedKey + '" onclick="DarkThemeEngine_ToggleAlbumJS(decodeURIComponent(this.getAttribute(\'data-album\')), false)">🚫 Disable Album</button>';
     }
     html += '</div></div></div>';
     html += '<div class="music-list">';
@@ -730,10 +762,11 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     for (var i = 0; i < albObj.tracks.length; i++) {
         var t = albObj.tracks[i];
         var isDisabled = isAlbumDisabled || !!disabled[t.path];
-        var safePath = t.path.replace(/'/g, "\\'").replace(/"/g, '');
+        var encodedPath = encodeURIComponent(t.path);
         var globalIdx = allTracks.indexOf(t);
         html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '"';
-        html += ' onclick="window.DarkThemeEngine_ToggleTrackJS(this, \'' + safePath.replace(/"/g, '') + '\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')"';
+        html += ' data-path="' + encodedPath + '"';
+        html += ' onclick="window.DarkThemeEngine_ToggleTrackJS(this);if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')"';
         html += ' oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + globalIdx + ')">';
         html += '<div style="width:48px;height:48px;background:rgba(0,0,0,0.4);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">';
         if (t.cover) html += '<img src="' + t.cover + '" style="width:100%;height:100%;object-fit:cover;" />';
@@ -1092,8 +1125,8 @@ window.DarkThemeEngine_RenderMusicUI = function() {
                 var t = filtered[i].track;
                 var idx = filtered[i].originalIndex;
                 var isDisabled = !!disabled[t.path];
-                var safePath = t.path.replace(/'/g, "\\'");
-                html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '" onclick="window.DarkThemeEngine_ToggleTrackJS(this, \'' + safePath.replace(/"/g, '') + '\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')" oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + idx + ')">';
+                var encodedPath = encodeURIComponent(t.path);
+                html += '<div class="music-track' + (isDisabled ? ' music-disabled' : '') + '" data-path="' + encodedPath + '" onclick="window.DarkThemeEngine_ToggleTrackJS(this);if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')" oncontextmenu="event.preventDefault();DarkThemeEngine_OpenMusicPreview(' + idx + ')">';
                 html += '<div style="width:48px;height:48px;background:rgba(0,0,0,0.4);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid rgba(255,255,255,0.05);">';
                 if (t.cover) html += '<img src="' + t.cover + '" style="width:100%;height:100%;object-fit:cover;" />';
                 else html += '<span style="font-size:24px;color:#94a3b8;">🎵</span>';
