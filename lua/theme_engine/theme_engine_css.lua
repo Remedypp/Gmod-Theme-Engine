@@ -34,7 +34,7 @@ div.centermessage a:hover { background:#555; }
 div.centermessage a:active { background:#333; }
 ]==]
 DarkThemeCSS.AlwaysOn = [==[
-#theme_options_btn { color:#56d8ff !important; text-shadow:0 0 12px rgba(86,216,255,0.6),0 0 30px rgba(86,216,255,0.15); transition:all 0.3s ease; letter-spacing:0.5px; }
+#theme_options_btn { color:#56d8ff !important; text-shadow:0 0 12px rgba(86,216,255,0.6),0 0 30px rgba(86,216,255,0.15); transition:color 0.3s, text-shadow 0.3s, transform 0.3s; letter-spacing:0.5px; }
 #theme_options_btn:hover { color:#8eeaff !important; text-shadow:0 0 16px rgba(142,234,255,0.8),0 0 40px rgba(86,216,255,0.4),0 0 60px rgba(86,216,255,0.15); transform:translateX(4px); }
 ]==]
 DarkThemeCSS.NavBar = [==[

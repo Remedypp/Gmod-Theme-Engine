@@ -28,10 +28,13 @@ local function InjectThemeIntoMenu()
         "if(window.DarkThemeEngine_InitSettingsUI) window.DarkThemeEngine_InitSettingsUI(%s);",
         util.TableToJSON(themeOpts)
     ))
-    DarkThemeEngine.CallJS("if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew();")
+    local lastSeenCL = DarkThemeEngine.Settings.LastSeenChangelog or ""
+    DarkThemeEngine.CallJS(string.format(
+        "window._DarkTheme_LastSeenChangelog = '%s'; if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew(); setTimeout(function(){if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew();},500);",
+        string.JavascriptSafe(lastSeenCL)
+    ))
     if DarkThemeEngine.SendFontsToJS then DarkThemeEngine.SendFontsToJS() end
-    DarkThemeEngine.CallJS("window._DarkTheme_MiscDirty = true;")
-    DarkThemeEngine.CallJS("window._DarkTheme_BgDirty = true; window._DarkTheme_MusicDirty = true;")
+    DarkThemeEngine.CallJS("window._DarkTheme_BgDirty = true; window._DarkTheme_MusicDirty = true; window._DarkTheme_MiscDirty = true;")
     hasInjected = true
 end
 
@@ -53,6 +56,16 @@ local function HookDocumentReady()
         InjectThemeIntoMenu()
     end
 end
+
+concommand.Add("theme_engine", function()
+    if not IsValid(pnlMainMenu) or not IsValid(pnlMainMenu.HTML) then return end
+    DarkThemeEngine.CallJS("window.location.hash = '#/theme/';")
+end, nil, "Open Theme Engine settings panel")
+
+concommand.Add("theme_engine_open", function()
+    if not IsValid(pnlMainMenu) or not IsValid(pnlMainMenu.HTML) then return end
+    DarkThemeEngine.CallJS("window.location.hash = '#/theme/';")
+end, nil, "Open Theme Engine settings panel")
 
 hook.Add( "MenuStart", "ThemeEngineReinject", function()
     hasInjected = false

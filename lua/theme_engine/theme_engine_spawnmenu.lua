@@ -1,15 +1,27 @@
 if CLIENT == nil then return end
 if SERVER then return end
 
-local function ReadSkin()
+local _cachedSkinName = nil
+
+local function GetSkinName()
+    if _cachedSkinName then return _cachedSkinName end
     local ok, content = pcall(file.Read, "theme_engine_data/settings.json", "DATA")
-    if not ok or not content then return "default" end
+    if not ok or not content then
+        _cachedSkinName = "default"
+        return _cachedSkinName
+    end
     local s = util.JSONToTable(content)
-    return (s and s.SpawnMenuSkin) or "default"
+    _cachedSkinName = (s and s.SpawnMenuSkin) or "default"
+    return _cachedSkinName
+end
+
+-- Invalidate cache when settings change (called from theme_engine_misc.lua)
+function DarkThemeEngine_InvalidateSpawnmenuSkinCache()
+    _cachedSkinName = nil
 end
 
 local function Apply()
-    local skin = ReadSkin()
+    local skin = GetSkinName()
     local isDefault = not skin or skin == "" or skin == "default"
 
     local hooks = hook.GetTable()
@@ -29,14 +41,8 @@ end
 
 hook.Add("InitPostEntity", "ThemeEngine_SkinInit", function()
     timer.Simple(0.5, Apply)
-    timer.Simple(2,   Apply)
-    timer.Simple(5,   Apply)
 end)
 
 hook.Add("SpawnMenuOpen", "ThemeEngine_SkinEnforce", function()
-    timer.Simple(0,   Apply)
-    timer.Simple(0.1, Apply)
-    timer.Simple(0.5, Apply)
+    Apply()
 end)
-
-timer.Create("ThemeEngine_SkinPoll", 2, 0, Apply)

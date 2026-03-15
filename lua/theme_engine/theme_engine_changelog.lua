@@ -1,6 +1,11 @@
 DarkThemeEngine = DarkThemeEngine or {}
 
 DarkThemeEngine.Credits = {
+    { ver = "0.2.5-beta", entries = {
+        { role = "Developer",          name = "Remedy" },
+        { role = "Ideas & Suggestions", name = "Mugtoast, Noobas, senvy, Marcina15" },
+        { role = "Bug Reports",        name = "Community (Steam Workshop Comments)" },
+    }},
     { ver = "0.2.0-beta", entries = {
         { role = "Developer",          name = "Remedy" },
         { role = "Ideas & Suggestions", name = "CMBD, Goshan, Mugtoast, Riggs, Sr.Bleatz, SillySpaceCat, Lord²" },
@@ -9,6 +14,20 @@ DarkThemeEngine.Credits = {
 }
 
 DarkThemeEngine.Changelog = {
+    { ver = "0.2.5-beta", changes = {
+        "NEW: Pause/Resume and Skip buttons for menu music",
+        "NEW: Font Size slider in Miscellaneous tab",
+        "NEW: Console commands 'theme_engine' / 'theme_engine_open' to open settings",
+        "NEW: Music fades out smoothly when entering a game instead of cutting abruptly",
+        "FIX: Changelog 'new' indicator now works reliably",
+        "OPTIMIZED: Removed all backdrop-filter blur effects (major GPU performance gain)",
+        "OPTIMIZED: Replaced all 'transition: all' with specific properties (13 instances)",
+        "OPTIMIZED: Spawnmenu skin no longer polls disk every 2 seconds",
+        "OPTIMIZED: Toggling music tracks/albums no longer rebuilds the entire playlist",
+        "OPTIMIZED: Adding a custom background no longer rescans the entire filesystem",
+        "OPTIMIZED: Reduced timer frequencies and removed unnecessary continuous timers",
+        "OPTIMIZED: Background preview preloads image before showing animation",
+    }},
     { ver = "0.2.1-beta", tag = "patch", changes = {
         "Fixed music not working with special characters in song names",
         "Fixed blue flash between background transitions",

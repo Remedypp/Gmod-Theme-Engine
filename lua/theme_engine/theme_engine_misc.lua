@@ -132,6 +132,7 @@ end
 function DarkTheme_SetSpawnmenuSkin(skinName)
     DarkThemeEngine.Settings.SpawnMenuSkin = skinName
     DarkThemeEngine.SaveSettings()
+    if DarkThemeEngine_InvalidateSpawnmenuSkinCache then DarkThemeEngine_InvalidateSpawnmenuSkinCache() end
     local skins = _cachedSkins or ScanSpawnmenuSkins()
     DarkThemeEngine.CallJS(string.format(
         "if(window.DarkThemeEngine_RenderSpawnmenuUI) window.DarkThemeEngine_RenderSpawnmenuUI(JSON.parse(\"%s\"), '%s');",
@@ -162,11 +163,23 @@ function DarkTheme_SaveCustomBackground(url, filename)
             DarkThemeEngine.CallJS("if(window.DT_OnCustomBgError) window.DT_OnCustomBgError('Failed to save file');")
             return
         end
-        DarkThemeEngine.ScanBackgrounds()
+        -- Add single image to existing list instead of full filesystem rescan
+        local bgPath = "data/theme_engine_backgrounds/" .. filename
+        local normPath = string.lower(bgPath)
+        if DarkThemeEngine.AllBackgroundsLookup and not DarkThemeEngine.AllBackgroundsLookup[normPath] then
+            DarkThemeEngine.AllBackgroundsLookup[normPath] = true
+            table.insert(DarkThemeEngine.AllBackgrounds, {
+                path = bgPath,
+                category = "Custom Backgrounds",
+                wsid = "",
+                isLocal = true,
+            })
+        end
         DarkThemeEngine.CallJS(string.format(
             "if(window.DT_OnCustomBgDone) window.DT_OnCustomBgDone('%s');",
             string.JavascriptSafe(filename)
         ))
+        DarkThemeEngine.CallJS("window._DarkTheme_BgDirty = true;")
         if IsValid(pnlMainMenu) then
             pnlMainMenu:UpdateBackgroundImages()
         end
@@ -188,6 +201,17 @@ function DarkThemeEngine.SendFontsToJS()
         "if(window.DarkThemeEngine_LoadLocalFonts) window.DarkThemeEngine_LoadLocalFonts(JSON.parse(\"%s\"));",
         string.JavascriptSafe(util.TableToJSON(fonts))
     ))
+end
+
+function DarkTheme_SetFontSize(size)
+    DarkThemeEngine.Settings.ThemeOptions = DarkThemeEngine.Settings.ThemeOptions or {}
+    DarkThemeEngine.Settings.ThemeOptions.MenuFontSize = size
+    DarkThemeEngine.SaveSettings()
+end
+
+function DarkTheme_SetLastSeenChangelog(ver)
+    DarkThemeEngine.Settings.LastSeenChangelog = ver
+    DarkThemeEngine.SaveSettings()
 end
 
 function DarkTheme_SetMenuFont(fontName)

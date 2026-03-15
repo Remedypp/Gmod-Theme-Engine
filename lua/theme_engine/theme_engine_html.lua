@@ -7,7 +7,7 @@ DarkThemeEngine._UI.HTML = [==[
     color: #e2e8f0;
     --primary: #3b82f6;
     --primary-hover: #60a5fa;
-    --bg-dark: rgba(15, 23, 42, 0.85);
+    --bg-dark: rgba(15, 23, 42, 0.92);
     --bg-panel: rgba(30, 41, 59, 0.75);
     --border: rgba(255, 255, 255, 0.1);
     --danger: #ef4444;
@@ -17,7 +17,6 @@ DarkThemeEngine._UI.HTML = [==[
     width: 950px; max-width: 100%;
     max-height: calc(100vh - 90px); overflow-y: auto;
     background: var(--bg-dark);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     padding: 20px 30px; border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.05);
     box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
@@ -36,9 +35,9 @@ DarkThemeEngine._UI.HTML = [==[
 .theme-tab.active::after { transform:scaleX(1); }
 @keyframes tabFadeIn { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
 .tab-content { display:none; }
-.tab-content.active { display:block; animation:tabFadeIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards; }
+.tab-content.active { display:block; animation:tabFadeIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards; will-change:opacity,transform; }
 .theme-list { display:flex; flex-direction:column; gap:12px; margin-top:15px; }
-.theme-list-item { background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:8px; padding:15px 20px; cursor:pointer; transition:all 0.2s cubic-bezier(0.4,0,0.2,1); display:flex; align-items:center; justify-content:space-between; }
+.theme-list-item { background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:8px; padding:15px 20px; cursor:pointer; transition:background 0.2s, border-color 0.2s; display:flex; align-items:center; justify-content:space-between; }
 .theme-list-item:hover:not(.disabled) { background:rgba(30,41,59,0.9); border-color:rgba(255,255,255,0.3); }
 .theme-list-item.active-theme { border-color:var(--primary); background:rgba(59,130,246,0.1); }
 .theme-list-item.disabled { opacity:0.5; cursor:default; }
@@ -47,42 +46,42 @@ DarkThemeEngine._UI.HTML = [==[
 .theme-check { font-size:1.5rem; color:var(--primary); font-weight:bold; opacity:0; transition:opacity 0.2s; }
 .theme-list-item.active-theme .theme-check { opacity:1; }
 .switch-label { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:0.95rem; color:#cbd5e1; user-select:none; }
-.fade-option { transition:all 0.3s cubic-bezier(0.4,0,0.2,1); opacity:1; transform:translateX(0); max-width:300px; margin-left:0; overflow:hidden; white-space:nowrap; }
-.fade-option.is-hidden { opacity:0; transform:translateX(-15px); max-width:0; margin-left:-30px; pointer-events:none; }
+.fade-option { transition:opacity 0.3s, transform 0.3s; opacity:1; transform:translateX(0) scaleX(1); transform-origin:left; overflow:hidden; white-space:nowrap; }
+.fade-option.is-hidden { opacity:0; transform:translateX(-15px) scaleX(0); pointer-events:none; }
 .switch { position:relative; display:inline-block; width:44px; height:24px; flex-shrink:0; }
 .switch input { opacity:0; width:0; height:0; }
-.slider { position:absolute; cursor:pointer; top:0;left:0;right:0;bottom:0; background:rgba(255,255,255,0.1); transition:.3s; border-radius:24px; border:1px solid var(--border); }
-.slider:before { position:absolute; content:""; height:18px; width:18px; left:2px; bottom:2px; background:#94a3b8; transition:.3s; border-radius:50%; }
+.slider { position:absolute; cursor:pointer; top:0;left:0;right:0;bottom:0; background:rgba(255,255,255,0.1); transition:background 0.3s, border-color 0.3s; border-radius:24px; border:1px solid var(--border); }
+.slider:before { position:absolute; content:""; height:18px; width:18px; left:2px; bottom:2px; background:#94a3b8; transition:transform 0.3s, background 0.3s; border-radius:50%; }
 input:checked + .slider { background:var(--primary); border-color:var(--primary); }
 input:checked + .slider:before { transform:translateX(20px); background:white; }
 .bg-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:16px; max-height:480px; overflow-y:auto; overscroll-behavior:contain; padding:5px 10px 15px 0; }
 .bg-grid::-webkit-scrollbar { width:8px; }
 .bg-grid::-webkit-scrollbar-track { background:rgba(0,0,0,0.1); border-radius:4px; }
 .bg-grid::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:4px; }
-.bg-card { position:relative; border-radius:8px; overflow:hidden; cursor:pointer; height:125px; border:2px solid transparent; transition:all 0.2s cubic-bezier(0.4,0,0.2,1); box-shadow:0 4px 6px -1px rgba(0,0,0,0.3); background:#000; }
-.bg-card:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 10px 15px -3px rgba(0,0,0,0.5); z-index:10; }
-.bg-card img { width:100%; height:100%; object-fit:cover; transition:opacity 0.3s, filter 0.3s; }
+.bg-card { position:relative; border-radius:8px; overflow:hidden; cursor:pointer; height:125px; border:2px solid transparent; transition:transform 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s; box-shadow:0 4px 6px -1px rgba(0,0,0,0.3); background:#000; will-change:transform; }
+.bg-card:hover { transform:translateY(-3px) scale(1.02); z-index:10; }
+.bg-card img { width:100%; height:100%; object-fit:cover; transition:opacity 0.3s; }
 .bg-name { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(transparent,rgba(0,0,0,0.9)); color:white; padding:15px 10px 8px; font-size:0.8rem; text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; pointer-events:none; }
 .bg-card.bg-disabled { border-color:var(--danger); }
-.bg-card.bg-disabled img { opacity:0.4; filter:grayscale(80%) blur(1px); }
+.bg-card.bg-disabled img { opacity:0.35; filter:grayscale(80%); }
 .bg-disabled-badge { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(239,68,68,0.9); color:white; padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:bold; letter-spacing:1px; box-shadow:0 2px 10px rgba(0,0,0,0.5); pointer-events:none; opacity:0; transition:opacity 0.2s; }
 .bg-card.bg-disabled .bg-disabled-badge { opacity:1; }
-.cat-card { background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:15px; display:flex; align-items:center; gap:15px; cursor:pointer; transition:all 0.2s; min-height:90px; }
+.cat-card { background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:15px; display:flex; align-items:center; gap:15px; cursor:pointer; transition:background 0.2s, border-color 0.2s, transform 0.2s; min-height:90px; }
 .cat-card:hover { background:rgba(30,41,59,0.7); border-color:rgba(255,255,255,0.15); transform:translateY(-2px); }
-.theme-btn { background:rgba(255,255,255,0.1); color:white; border:1px solid var(--border); padding:8px 16px; border-radius:6px; cursor:pointer; transition:all 0.2s; font-size:0.9rem; font-weight:500; font-family:inherit; }
+.theme-btn { background:rgba(255,255,255,0.1); color:white; border:1px solid var(--border); padding:8px 16px; border-radius:6px; cursor:pointer; transition:background 0.2s, transform 0.2s; font-size:0.9rem; font-weight:500; font-family:inherit; }
 .theme-btn:hover { background:rgba(255,255,255,0.2); transform:translateY(-1px); }
-.theme-input { background:rgba(15,23,42,0.9); border:1px solid var(--border); color:white; padding:8px 12px; border-radius:6px; outline:none; font-family:inherit; transition:all 0.2s; }
+.theme-input { background:rgba(15,23,42,0.9); border:1px solid var(--border); color:white; padding:8px 12px; border-radius:6px; outline:none; font-family:inherit; transition:border-color 0.2s, box-shadow 0.2s; }
 .theme-input:focus { border-color:var(--primary); box-shadow:0 0 0 2px rgba(59,130,246,0.3); }
 .active-bg-banner { display:inline-flex; align-items:center; gap:8px; background:rgba(16,185,129,0.15); color:#34d399; padding:6px 12px; border-radius:6px; border:1px solid rgba(16,185,129,0.3); font-size:0.9rem; font-weight:500; }
-.preview-overlay { position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.88); backdrop-filter:blur(15px); z-index:10000; display:flex; align-items:center; justify-content:center; animation:modalFadeIn 0.25s ease-out; }
+.preview-overlay { position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.92); z-index:10000; display:flex; align-items:center; justify-content:center; animation:modalFadeIn 0.2s ease-out; will-change:opacity; }
 @keyframes modalFadeIn { from{opacity:0} to{opacity:1} }
-.preview-close { position:absolute; top:20px; right:30px; font-size:2rem; color:#94a3b8; cursor:pointer; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:50%; width:48px; height:48px; display:flex; align-items:center; justify-content:center; transition:all 0.2s; z-index:10001; }
+.preview-close { position:absolute; top:20px; right:30px; font-size:2rem; color:#94a3b8; cursor:pointer; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:50%; width:48px; height:48px; display:flex; align-items:center; justify-content:center; transition:color 0.2s, background 0.2s, border-color 0.2s; z-index:10001; }
 .preview-close:hover { color:#fff; background:rgba(239,68,68,0.4); border-color:rgba(239,68,68,0.6); }
-.preview-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:2.5rem; color:#cbd5e1; cursor:pointer; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:12px; width:56px; height:80px; display:flex; align-items:center; justify-content:center; transition:all 0.2s; z-index:10001; user-select:none; }
+.preview-arrow { position:absolute; top:50%; transform:translateY(-50%); font-size:2.5rem; color:#cbd5e1; cursor:pointer; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:12px; width:56px; height:80px; display:flex; align-items:center; justify-content:center; transition:color 0.2s, background 0.2s, border-color 0.2s; z-index:10001; user-select:none; }
 .preview-arrow:hover { color:#fff; background:rgba(59,130,246,0.3); border-color:rgba(59,130,246,0.5); }
 .preview-arrow.left { left:25px; }
 .preview-arrow.right { right:25px; }
-.preview-bg-image { max-width:85vw; max-height:80vh; border-radius:12px; box-shadow:0 30px 60px rgba(0,0,0,0.6); object-fit:contain; }
+.preview-bg-image { max-width:85vw; max-height:80vh; border-radius:12px; box-shadow:0 30px 60px rgba(0,0,0,0.6); object-fit:contain; will-change:contents; }
 .preview-bg-name { position:absolute; bottom:25px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); color:#e2e8f0; padding:8px 20px; border-radius:8px; font-size:0.9rem; border:1px solid rgba(255,255,255,0.1); }
 .preview-cat-label { position:absolute; top:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.7); color:#60a5fa; padding:8px 20px; border-radius:8px; font-size:1rem; font-weight:600; border:1px solid rgba(59,130,246,0.3); z-index:10001; display:flex; align-items:center; gap:10px; }
 .empty-tab-placeholder { text-align:center; padding:60px 20px; background:rgba(0,0,0,0.15); border-radius:12px; border:1px dashed rgba(255,255,255,0.1); }
@@ -93,14 +92,14 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
 .music-list::-webkit-scrollbar { width:8px; }
 .music-list::-webkit-scrollbar-track { background:rgba(0,0,0,0.1); border-radius:4px; }
 .music-list::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.2); border-radius:4px; }
-.music-track { display:flex; align-items:center; gap:15px; padding:12px 20px; background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:all 0.2s cubic-bezier(0.4,0,0.2,1); margin-bottom:8px; }
+.music-track { display:flex; align-items:center; gap:15px; padding:12px 20px; background:rgba(15,23,42,0.6); border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:background 0.2s, border-color 0.2s; margin-bottom:8px; }
 .music-track:hover { background:rgba(30,41,59,0.9); border-color:rgba(255,255,255,0.3); }
 .music-track.music-disabled { opacity:0.5; }
 @keyframes modalCardIn { from{opacity:0;transform:scale(0.9) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
 .music-detail-card { background:var(--bg-dark); border-radius:16px; padding:35px; max-width:450px; width:90vw; border:1px solid rgba(255,255,255,0.08); box-shadow:0 30px 60px rgba(0,0,0,0.5); display:flex; flex-direction:column; align-items:center; gap:20px; animation:modalCardIn 0.3s cubic-bezier(0.16,1,0.3,1); }
 .music-detail-cover { width:200px; height:200px; border-radius:12px; object-fit:cover; box-shadow:0 15px 35px rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.05); }
 .music-detail-placeholder { width:200px; height:200px; border-radius:12px; background:rgba(30,41,59,0.9); display:flex; align-items:center; justify-content:center; font-size:5rem; color:#475569; border:1px solid rgba(255,255,255,0.05); }
-.yt-button { display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:rgba(255,0,0,0.15); color:#ff4444; border:1px solid rgba(255,0,0,0.3); border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600; transition:all 0.2s; }
+.yt-button { display:inline-flex; align-items:center; gap:8px; padding:10px 22px; background:rgba(255,0,0,0.15); color:#ff4444; border:1px solid rgba(255,0,0,0.3); border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600; transition:background 0.2s, border-color 0.2s, color 0.2s, transform 0.2s; }
 .yt-button:hover { background:rgba(255,0,0,0.3); border-color:rgba(255,0,0,0.5); color:#ff6666; transform:translateY(-1px); }
 @keyframes guideSlideIn { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
 .dt-guide-step { background:rgba(0,0,0,0.2); padding:12px; border-radius:8px; margin-bottom:12px; border-left:3px solid #3b82f6; }
@@ -192,7 +191,11 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
                         <div class="active-bg-banner" style="background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);width:100%;max-width:400px;display:flex;flex-direction:column;gap:8px;padding:10px 14px;">
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:50%;box-shadow:0 0 8px #3b82f6;flex-shrink:0;"></span>
-                                <span id="music_now_playing" style="color:#60a5fa;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Now Playing: None</span>
+                                <span id="music_now_playing" style="color:#60a5fa;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;">Now Playing: None</span>
+                                <div style="display:flex;gap:4px;flex-shrink:0;">
+                                    <button id="music_btn_pause" onclick="DarkThemeEngine_TogglePause()" style="width:28px;height:28px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.05);color:#94a3b8;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;transition:color 0.2s,background 0.2s;" title="Pause/Resume">⏸</button>
+                                    <button onclick="DarkThemeEngine_SkipTrack()" style="width:28px;height:28px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(255,255,255,0.05);color:#94a3b8;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;transition:color 0.2s,background 0.2s;" title="Next Track">⏭</button>
+                                </div>
                             </div>
                             <div style="display:flex;align-items:center;gap:10px;width:100%;">
                                 <span id="music_time_label" style="font-size:0.75rem;color:#94a3b8;font-variant-numeric:tabular-nums;min-width:70px;text-align:right;">00:00 / 00:00</span>
@@ -204,7 +207,6 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                         <input type="text" class="theme-input" placeholder="Search..." id="music_search_input" oninput="DarkThemeEngine_FilterMusic()" style="width:180px;padding:10px 14px;font-size:0.9rem;">
-                        <button class="theme-btn" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);" onclick="DarkThemeEngine_ShowHelp('music')">❓ Help</button>
                     </div>
                 </div>
                 <div style="height:1px;background:rgba(255,255,255,0.05);margin:20px 0;"></div>
@@ -252,8 +254,14 @@ input:checked + .slider:before { transform:translateX(20px); background:white; }
                             </div>
                             <div id="misc_font_list" style="display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:200px;background:rgba(15,23,42,0.98);border:1px solid rgba(255,255,255,0.1);border-radius:8px;z-index:9999;max-height:220px;overflow-y:auto;box-shadow:0 10px 30px rgba(0,0,0,0.6);"></div>
                         </div>
-                        <button class="theme-btn" style="font-size:0.82rem;padding:6px 14px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);" onclick="DarkThemeEngine_SetMenuFont('')">Reset</button>
+                        <button class="theme-btn" style="font-size:0.82rem;padding:6px 14px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);" onclick="DarkThemeEngine_SetMenuFont('');DarkThemeEngine_SetFontSize(0);">Reset</button>
                         <span id="misc_font_preview" style="font-size:0.95rem;color:#60a5fa;padding:6px 12px;background:rgba(59,130,246,0.08);border-radius:6px;border:1px solid rgba(59,130,246,0.15);">Preview Text Aa</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+                        <span style="font-size:0.85rem;color:#94a3b8;white-space:nowrap;">Font Size:</span>
+                        <input type="range" id="opt_font_size" min="8" max="20" value="12" step="1" style="flex:1;max-width:180px;accent-color:#3b82f6;cursor:pointer;" oninput="DarkThemeEngine_SetFontSize(parseInt(this.value))">
+                        <span id="opt_font_size_label" style="font-size:0.82rem;color:#60a5fa;font-weight:600;min-width:32px;">12px</span>
+                        <button class="theme-btn" style="font-size:0.75rem;padding:4px 10px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);" onclick="DarkThemeEngine_SetFontSize(0)">Default</button>
                     </div>
                     <div style="font-size:0.78rem;color:#475569;margin-top:6px;">To add custom fonts locally, place <code style="color:#94a3b8;">.ttf</code> files in <code style="color:#94a3b8;">garrysmod/data/theme_engine_fonts/</code></div>
                 </div>

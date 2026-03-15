@@ -49,10 +49,12 @@ local function EnsureSettingsExist()
             Music_Shuffle   = false,
             Music_Volume    = 0.6,
             MenuFont = "",
+            MenuFontSize = 0,
         },
         DisabledBackgrounds = {},
         DisabledMusic       = {},
         DisabledAlbums = {},
+        LastSeenChangelog = "",
     }
 
     if file.Exists(SETTINGS_FILE, "DATA") then

@@ -41,7 +41,16 @@ window.DarkThemeEngine_UpdateUI = function() {
     var items = { light: document.getElementById('theme_item_light'), dark: document.getElementById('theme_item_dark') };
     for (var k in items) { if (items[k]) { if (k === mode) items[k].classList.add('active-theme'); else items[k].classList.remove('active-theme'); } }
 };
-window.DarkThemeEngine_LuaCall = function(code) { if (typeof lua !== 'undefined' && lua.Run) lua.Run(code); };
+window.DarkThemeEngine_LuaCall = function(code) { if (typeof lua !== 'undefined' && lua.Run) lua.Run(String(code).replace(/%/g, '%%')); };
+window.DarkThemeEngine_EscapeHTML = function(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+};
 window.DarkThemeEngine_InitSettingsUI = function(opts) {
     if (!opts) return;
     if (opts.Mode) {
@@ -85,7 +94,26 @@ window.DarkThemeEngine_InitSettingsUI = function(opts) {
         if (window.DarkThemeEngine_ApplyMenuFont) window.DarkThemeEngine_ApplyMenuFont(opts.MenuFont || '');
         if (window.DarkThemeEngine_SetFontLabel) window.DarkThemeEngine_SetFontLabel(opts.MenuFont || '');
     }
+    if (opts.MenuFontSize && opts.MenuFontSize > 0) {
+        if (window.DarkThemeEngine_SetFontSize) window.DarkThemeEngine_SetFontSize(opts.MenuFontSize);
+    }
     if (window.DarkThemeEngine_UpdateMusicFadeOptions) window.DarkThemeEngine_UpdateMusicFadeOptions();
+};
+window.DarkThemeEngine_TogglePause = function() {
+    var node = window.DarkTheme_AudioNode;
+    if (!node) return;
+    var btn = document.getElementById('music_btn_pause');
+    if (node.paused) {
+        var p = node.play();
+        if (p && p.catch) p.catch(function(){});
+        if (btn) btn.textContent = '⏸';
+    } else {
+        node.pause();
+        if (btn) btn.textContent = '▶';
+    }
+};
+window.DarkThemeEngine_SkipTrack = function() {
+    if (window.DarkTheme_PlayNextTrack) window.DarkTheme_PlayNextTrack(true);
 };
 window._DarkTheme_Backgrounds = [];
 window._DarkTheme_DisabledBgs = {};
@@ -145,6 +173,7 @@ window.DarkThemeEngine_ShowHelp = function(section) {
             + '<div class="dt-guide-step"><strong>Subfolders = Albums</strong><br>Create subfolders inside <code>theme_engine_music/</code> to organise tracks into albums:<br><code>data/theme_engine_music/MyAlbum/track1.mp3</code></div>'
             + '<div class="dt-guide-step"><strong>Custom metadata (titles, artist, cover art)</strong><br>Create <code>te_music_meta.json</code> in <code>data/theme_engine_music/</code>. Each song is a key matching the filename exactly. To add more songs, just add more entries:<div style="background:rgba(0,0,0,0.5);padding:10px;border-radius:6px;margin-top:8px;font-family:Consolas,monospace;font-size:0.78rem;color:#a5b4fc;white-space:pre;overflow-x:auto;">{\n  "song.mp3": {\n    "title": "My Track",\n    "artist": "Artist Name",\n    "desc": "A cool track",\n    "youtube": "https://youtu.be/..."\n  },\n  "another_song.mp3": {\n    "title": "Another Track",\n    "artist": "Someone Else",\n    "desc": "Another cool track"\n  }\n}</div><div style="font-size:0.8rem;color:#64748b;margin-top:6px;">All fields are optional. If a field is missing, the engine reads it from the MP3 ID3 tag automatically.</div></div>'
             + '<div class="dt-guide-step"><strong>Workshop addon</strong><br>Put audio in <code>sound/theme_engine_music/</code>, metadata in <code>data_static/te_music_meta.json</code>. Use <a href="https://github.com/WilliamVenner/gmpublisher" style="color:#3b82f6;">gmpublisher</a> to publish.</div>'
+            + '<div class="dt-guide-step"><strong>Playback controls</strong><br>• <strong>Pause/Resume</strong> (⏸) and <strong>Skip</strong> (⏭) buttons appear next to the Now Playing area<br>• Music fades out smoothly when entering a game instead of cutting abruptly<br>• <strong>Playlist Mode</strong>: auto-advances to the next track<br>• <strong>Shuffle</strong>: randomises track order</div>'
         },
         { id: 'backgrounds', icon: '🖼️', title: 'Backgrounds', content:
             '<p style="color:#94a3b8;margin-top:0;">Manage background images shown in the main menu.</p>'
@@ -165,6 +194,14 @@ window.DarkThemeEngine_ShowHelp = function(section) {
             + '<div class="dt-guide-step"><strong>Built-in fonts</strong><br>Pick any font from the dropdown. Previews update instantly. Click Reset to go back to the default.</div>'
             + '<div class="dt-guide-step"><strong>Type any font name</strong><br>If you know a font installed on your system, type its name in the text field and click Apply.</div>'
             + '<div class="dt-guide-step"><strong>Local .ttf fonts</strong><br>Drop <code>.ttf</code> font files into:<br><code>garrysmod/data/theme_engine_fonts/</code><br>They will appear in the dropdown automatically after reloading the menu.</div>'
+            + '<div class="dt-guide-step"><strong>Font Size</strong><br>Use the <em>Font Size</em> slider (8–20px) in the Miscellaneous tab to adjust the menu text size. Click <em>Default</em> to reset.</div>'
+        },
+        { id: 'misc', icon: '⚙️', title: 'Miscellaneous', content:
+            '<p style="color:#94a3b8;margin-top:0;">General tips, console commands, and other useful info.</p>'
+            + '<div class="dt-guide-step"><strong>Console commands</strong><br>Type <code>theme_engine</code> or <code>theme_engine_open</code> in the console to open the Theme Engine settings panel directly.</div>'
+            + '<div class="dt-guide-step"><strong>Dark loading screen</strong><br>The dark theme is automatically applied to the map loading screen. No extra configuration needed.</div>'
+            + '<div class="dt-guide-step"><strong>Data folders</strong><br>Theme Engine stores all user data in <code>garrysmod/data/</code>:<br>• <code>theme_engine_data/</code> — settings<br>• <code>theme_engine_music/</code> — custom music files<br>• <code>theme_engine_backgrounds/</code> — custom background images<br>• <code>theme_engine_fonts/</code> — custom .ttf fonts</div>'
+            + '<div class="dt-guide-step"><strong>Workshop compatibility</strong><br>Workshop addons that provide backgrounds or music are detected automatically when mounted. No manual setup required.</div>'
         },
     ];
     var panel = document.createElement('div');
@@ -181,7 +218,7 @@ window.DarkThemeEngine_ShowHelp = function(section) {
             var isActive = s.id === activeSection;
             tabs += '<button onclick="window._DT_HelpSection=\'' + s.id + '\';document.getElementById(\'dt_help_panel\').remove();window.DarkThemeEngine_ShowHelp(window._DT_HelpSection);" style="display:flex;align-items:center;gap:8px;width:100%;padding:10px 14px;background:' + (isActive ? 'rgba(59,130,246,0.15)' : 'transparent') + ';border:none;border-radius:8px;color:' + (isActive ? '#60a5fa' : '#94a3b8') + ';font-size:0.9rem;font-weight:' + (isActive ? '600' : '400') + ';cursor:pointer;text-align:left;font-family:inherit;transition:background 0.15s;">' + s.icon + ' ' + s.title + '</button>';
         }
-        var inner = '<div style="display:flex;width:720px;max-width:94vw;height:75vh;max-height:560px;background:rgba(15,23,42,0.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:14px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 30px 60px rgba(0,0,0,0.7);overflow:hidden;">'
+        var inner = '<div style="display:flex;width:720px;max-width:94vw;height:75vh;max-height:560px;background:rgba(15,23,42,0.98);border-radius:14px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 30px 60px rgba(0,0,0,0.7);overflow:hidden;">'
             + '<div style="width:185px;flex-shrink:0;padding:20px 12px;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;gap:4px;overflow-y:auto;">'
             + '<div style="font-size:0.75rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.8px;padding:4px 14px 10px;">Help Topics</div>'
             + tabs
@@ -216,7 +253,7 @@ window.DarkThemeEngine_ShowChangelog = function() {
         + '#dt_changelog_inner::-webkit-scrollbar-thumb{background:rgba(59,130,246,0.5);border-radius:3px}'
         + '#dt_changelog_inner::-webkit-scrollbar-thumb:hover{background:rgba(59,130,246,0.8)}'
         + '</style>';
-    inner += '<div id="dt_changelog_inner" style="width:620px;max-width:92vw;max-height:72vh;overflow-y:auto;background:rgba(15,23,42,0.98);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:30px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);color:#e2e8f0;font-size:0.95rem;line-height:1.5;">';
+    inner += '<div id="dt_changelog_inner" style="width:620px;max-width:92vw;max-height:72vh;overflow-y:auto;background:rgba(15,23,42,0.98);padding:30px;border-radius:12px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px -12px rgba(0,0,0,0.7);color:#e2e8f0;font-size:0.95rem;line-height:1.5;">';
     inner += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:15px;border-bottom:1px solid rgba(255,255,255,0.08);">';
     inner += '<span style="font-size:1.3rem;font-weight:600;color:#f8fafc;">Changelog</span>';
     inner += '<button id="dt_changelog_x" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">\u2715</button>';
@@ -255,18 +292,25 @@ window.DarkThemeEngine_ShowChangelog = function() {
     panel.innerHTML = inner;
     panel.onclick = function(e) { if (e.target === panel) panel.remove(); };
     document.body.appendChild(panel);
-    try { localStorage.setItem('DarkTheme_LastSeenChangelog', logs[0].ver); } catch(e) {}
+    var seenVer = logs[0] ? logs[0].ver : '';
+    window._DarkTheme_LastSeenChangelog = seenVer;
+    DarkThemeEngine_LuaCall("DarkTheme_SetLastSeenChangelog('" + seenVer.replace(/'/g, "\\'") + "')");
     var dot = document.getElementById('dt_changelog_new');
     if (dot) dot.style.display = 'none';
+    var menuDot = document.getElementById('dt_menu_new_dot');
+    if (menuDot) menuDot.style.display = 'none';
+    var btn = document.getElementById('dt_changelog_btn');
+    if (btn) { btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; btn.style.fontWeight = ''; btn.title = ''; }
     document.getElementById('dt_changelog_x').onclick = function() { panel.remove(); };
 };
 window.DarkThemeEngine_CheckChangelogNew = function() {
     var currentVer = (window._DarkThemeChangelog && window._DarkThemeChangelog[0]) ? window._DarkThemeChangelog[0].ver : '';
-    var seen = '';
-    try { seen = localStorage.getItem('DarkTheme_LastSeenChangelog') || ''; } catch(e) {}
+    var seen = window._DarkTheme_LastSeenChangelog || '';
+    var isNew = (currentVer !== '' && seen !== currentVer);
     var btn = document.getElementById('dt_changelog_btn');
     var dot = document.getElementById('dt_changelog_new');
-    if (seen !== currentVer) {
+    var menuDot = document.getElementById('dt_menu_new_dot');
+    if (isNew) {
         if (btn) {
             btn.style.background = 'rgba(239,68,68,0.18)';
             btn.style.color = '#fca5a5';
@@ -275,6 +319,7 @@ window.DarkThemeEngine_CheckChangelogNew = function() {
             btn.title = 'New update: ' + currentVer;
         }
         if (dot) dot.style.display = 'block';
+        if (menuDot) menuDot.style.display = 'block';
     } else {
         if (btn) {
             btn.style.background = '';
@@ -284,6 +329,7 @@ window.DarkThemeEngine_CheckChangelogNew = function() {
             btn.title = '';
         }
         if (dot) dot.style.display = 'none';
+        if (menuDot) menuDot.style.display = 'none';
     }
 };
 window.DarkThemeEngine_FilterBgs = function() {
@@ -355,10 +401,11 @@ window.DarkThemeEngine_RenderBackgroundsUI = function() {
         } else {
             iconHtml = '<div style="width:80px;height:80px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#94a3b8;border:1px solid rgba(255,255,255,0.1);flex-shrink:0;min-width:80px;">🎮</div>';
         }
-        html += '<div class="cat-card" onclick="DarkThemeEngine_ShowCategoryDetail(\'' + cat.name.replace(/'/g, "\\'") + '\')">';
+        var encodedCat = encodeURIComponent(cat.name);
+        html += '<div class="cat-card" data-cat="' + encodedCat + '" onclick="DarkThemeEngine_ShowCategoryDetail(decodeURIComponent(this.getAttribute(\'data-cat\')))">';
         html += iconHtml;
         html += '<div style="flex:1;overflow:hidden;">';
-        html += '<div style="font-size:1.15rem;font-weight:600;color:#f8fafc;margin-bottom:4px;white-space:pre-wrap;word-break:break-word;">' + cat.name + '</div>';
+        html += '<div style="font-size:1.15rem;font-weight:600;color:#f8fafc;margin-bottom:4px;white-space:pre-wrap;word-break:break-word;">' + window.DarkThemeEngine_EscapeHTML(cat.name) + '</div>';
         html += '<div style="font-size:0.85rem;color:#94a3b8;">' + cat.backgrounds.length + ' Backgrounds</div>';
         html += '</div></div>';
     }
@@ -386,7 +433,7 @@ window.DarkThemeEngine_ShowCategoryDetail = function(catName) {
         if (!filter || bg.path.toLowerCase().indexOf(filter) !== -1) catBgs.push(bg);
     }
     var html = '';
-    html += '<div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;background:rgba(0,0,0,0.25);padding:12px 18px;border-radius:12px;border-left:4px solid #3b82f6;backdrop-filter:blur(5px);">';
+    html += '<div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;background:rgba(0,0,0,0.35);padding:12px 18px;border-radius:12px;border-left:4px solid #3b82f6;">';
     html += '<button class="theme-btn" style="padding:10px 14px;margin-right:10px;background:rgba(255,255,255,0.1);border:none;" onclick="DarkThemeEngine_RenderBackgroundsUI();if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')">← Back</button>';
     if (catObj.imageUrl) {
         html += '<img src="' + catObj.imageUrl + '" style="width:54px;height:54px;border-radius:8px;object-fit:cover;box-shadow:0 4px 10px rgba(0,0,0,0.4);" />';
@@ -396,7 +443,7 @@ window.DarkThemeEngine_ShowCategoryDetail = function(catName) {
         html += '<div style="width:54px;height:54px;border-radius:8px;background:rgba(59,130,246,0.1);display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#3b82f6;border:1px solid rgba(59,130,246,0.2);">☁️</div>';
     }
     html += '<div style="flex:1;">';
-    html += '<div style="font-size:1.15rem;font-weight:600;color:#f8fafc;margin-bottom:2px;">' + catObj.name + '</div>';
+    html += '<div style="font-size:1.15rem;font-weight:600;color:#f8fafc;margin-bottom:2px;">' + window.DarkThemeEngine_EscapeHTML(catObj.name) + '</div>';
     html += '<div style="font-size:0.85rem;color:#94a3b8;display:flex;align-items:center;gap:10px;">';
     html += '<span>' + catBgs.length + ' Backgrounds</span>';
     if (catObj.wsid && catObj.wsid !== '' && catObj.wsid !== '0') {
@@ -404,23 +451,25 @@ window.DarkThemeEngine_ShowCategoryDetail = function(catName) {
     }
     html += '</div>';
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">';
-    var escapedCat = catName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" onclick="event.stopPropagation();DarkThemeEngine_DisableCategory(\'' + escapedCat + '\')">🚫 Disable All</button>';
-    html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" onclick="event.stopPropagation();DarkThemeEngine_EnableCategory(\'' + escapedCat + '\')">✓ Enable All</button>';
+    var encodedCatKey = encodeURIComponent(catName);
+    html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(239,68,68,0.15);color:#f87171;border-color:rgba(239,68,68,0.3);" data-cat="' + encodedCatKey + '" onclick="event.stopPropagation();DarkThemeEngine_DisableCategory(decodeURIComponent(this.getAttribute(\'data-cat\')))">🚫 Disable All</button>';
+    html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" data-cat="' + encodedCatKey + '" onclick="event.stopPropagation();DarkThemeEngine_EnableCategory(decodeURIComponent(this.getAttribute(\'data-cat\')))">✓ Enable All</button>';
     html += '</div>';
     html += '</div></div>';
     html += '<div class="bg-grid">';
+    var encodedCat = encodeURIComponent(catName);
     for (var i = 0; i < catBgs.length; i++) {
         var bg = catBgs[i];
         var isDisabled = !!disabled[bg.path];
         var filename = bg.path.split('/').pop();
-        var escapedPath = bg.path.replace(/'/g, "\\'");
+        var encodedPath = encodeURIComponent(bg.path);
         html += '<div class="bg-card' + (isDisabled ? ' bg-disabled' : '') + '" ';
-        html += 'onclick="DarkThemeEngine_ToggleBg(\'' + escapedPath + '\', this)" ';
-        html += 'oncontextmenu="event.preventDefault();DarkThemeEngine_OpenBgPreview(\'' + escapedPath + '\',\'' + catName.replace(/'/g, "\\'") + '\')" ';
+        html += 'data-path="' + encodedPath + '" data-cat="' + encodedCat + '" ';
+        html += 'onclick="DarkThemeEngine_ToggleBg(decodeURIComponent(this.getAttribute(\'data-path\')), this)" ';
+        html += 'oncontextmenu="event.preventDefault();DarkThemeEngine_OpenBgPreview(decodeURIComponent(this.getAttribute(\'data-path\')), decodeURIComponent(this.getAttribute(\'data-cat\')))" ';
         html += '>';
         html += '<img src="../' + bg.path + '" loading="lazy" />';
-        html += '<div class="bg-name">' + filename + '</div>';
+        html += '<div class="bg-name">' + window.DarkThemeEngine_EscapeHTML(filename) + '</div>';
         html += '<div class="bg-disabled-badge">DISABLED</div>';
         html += '</div>';
     }
@@ -434,7 +483,7 @@ window.DarkThemeEngine_ShowCategoryDetail = function(catName) {
 window.DarkThemeEngine_ToggleBg = function(bgPath, cardEl) {
     if (window._DarkTheme_DisabledBgs[bgPath]) delete window._DarkTheme_DisabledBgs[bgPath];
     else window._DarkTheme_DisabledBgs[bgPath] = true;
-    DarkThemeEngine_LuaCall("DarkThemeEngine_ToggleBackground('" + bgPath.replace(/'/g, "\\'") + "')");
+    DarkThemeEngine_LuaCall('DarkThemeEngine_ToggleBackground("' + window.DarkThemeEngine_SafePathForLua(bgPath) + '")');
     if (cardEl) {
         if (window._DarkTheme_DisabledBgs[bgPath]) cardEl.classList.add('bg-disabled');
         else cardEl.classList.remove('bg-disabled');
@@ -450,8 +499,8 @@ window.DarkThemeEngine_DisableCategory = function(catName) {
             break;
         }
     }
-    var safeName = catName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    DarkThemeEngine_LuaCall("DarkThemeEngine_DisableCategoryBackgrounds('" + safeName + "')");
+    var safeName = window.DarkThemeEngine_SafePathForLua(catName);
+    DarkThemeEngine_LuaCall('DarkThemeEngine_DisableCategoryBackgrounds("' + safeName + '")');
     if (typeof lua !== 'undefined' && lua.PlaySound) lua.PlaySound('garrysmod/ui_click.wav');
     window.DarkThemeEngine_ShowCategoryDetail(catName);
 };
@@ -464,8 +513,8 @@ window.DarkThemeEngine_EnableCategory = function(catName) {
             break;
         }
     }
-    var safeName = catName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    DarkThemeEngine_LuaCall("DarkThemeEngine_EnableCategoryBackgrounds('" + safeName + "')");
+    var safeName = window.DarkThemeEngine_SafePathForLua(catName);
+    DarkThemeEngine_LuaCall('DarkThemeEngine_EnableCategoryBackgrounds("' + safeName + '")');
     if (typeof lua !== 'undefined' && lua.PlaySound) lua.PlaySound('garrysmod/ui_click.wav');
     window.DarkThemeEngine_ShowCategoryDetail(catName);
 };
@@ -485,51 +534,60 @@ window.DarkThemeEngine_OpenBgPreview = function(bgPath, catName) {
     var modal = document.getElementById('bg_preview_modal');
     if (!modal) return;
     var cur = allBgs[startIdx];
-    modal.innerHTML = '';
-    var overlay = document.createElement('div');
-    overlay.className = 'preview-overlay';
-    overlay.onclick = function() { DarkThemeEngine_ClosePreview(); };
-    var catLabel = document.createElement('div');
-    catLabel.className = 'preview-cat-label';
-    var catImg = document.createElement('img');
-    catImg.id = 'preview_cat_img';
-    catImg.style.cssText = 'width:28px;height:28px;border-radius:6px;object-fit:cover;';
-    catImg.style.display = cur.categoryImage ? '' : 'none';
-    catImg.src = cur.categoryImage || '';
-    var catText = document.createElement('span');
-    catText.id = 'preview_cat_text';
-    catText.textContent = cur.category;
-    catLabel.appendChild(catImg);
-    catLabel.appendChild(catText);
-    overlay.appendChild(catLabel);
-    var closeBtn = document.createElement('div');
-    closeBtn.className = 'preview-close';
-    closeBtn.textContent = '✕';
-    closeBtn.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_ClosePreview(); };
-    overlay.appendChild(closeBtn);
-    var leftArrow = document.createElement('div');
-    leftArrow.className = 'preview-arrow left';
-    leftArrow.textContent = '‹';
-    leftArrow.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_PreviewPrev(); };
-    overlay.appendChild(leftArrow);
-    var rightArrow = document.createElement('div');
-    rightArrow.className = 'preview-arrow right';
-    rightArrow.textContent = '›';
-    rightArrow.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_PreviewNext(); };
-    overlay.appendChild(rightArrow);
-    var previewImg = document.createElement('img');
-    previewImg.className = 'preview-bg-image';
-    previewImg.id = 'preview_main_img';
-    previewImg.src = '../' + cur.path;
-    previewImg.onclick = function(e) { e.stopPropagation(); };
-    overlay.appendChild(previewImg);
-    var nameLabel = document.createElement('div');
-    nameLabel.className = 'preview-bg-name';
-    nameLabel.id = 'preview_name_label';
-    nameLabel.textContent = cur.path.split('/').pop() + ' — ' + (startIdx + 1) + ' / ' + allBgs.length;
-    overlay.appendChild(nameLabel);
-    modal.appendChild(overlay);
-    modal.style.display = 'block';
+
+    // Preload the image before showing the modal to prevent animation stutter
+    var preloader = new Image();
+    preloader.src = '../' + cur.path;
+    var showModal = function() {
+        modal.innerHTML = '';
+        var overlay = document.createElement('div');
+        overlay.className = 'preview-overlay';
+        overlay.onclick = function() { DarkThemeEngine_ClosePreview(); };
+        var catLabel = document.createElement('div');
+        catLabel.className = 'preview-cat-label';
+        var catImg = document.createElement('img');
+        catImg.id = 'preview_cat_img';
+        catImg.style.cssText = 'width:28px;height:28px;border-radius:6px;object-fit:cover;';
+        catImg.style.display = cur.categoryImage ? '' : 'none';
+        catImg.src = cur.categoryImage || '';
+        var catText = document.createElement('span');
+        catText.id = 'preview_cat_text';
+        catText.textContent = cur.category;
+        catLabel.appendChild(catImg);
+        catLabel.appendChild(catText);
+        overlay.appendChild(catLabel);
+        var closeBtn = document.createElement('div');
+        closeBtn.className = 'preview-close';
+        closeBtn.textContent = '✕';
+        closeBtn.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_ClosePreview(); };
+        overlay.appendChild(closeBtn);
+        var leftArrow = document.createElement('div');
+        leftArrow.className = 'preview-arrow left';
+        leftArrow.textContent = '‹';
+        leftArrow.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_PreviewPrev(); };
+        overlay.appendChild(leftArrow);
+        var rightArrow = document.createElement('div');
+        rightArrow.className = 'preview-arrow right';
+        rightArrow.textContent = '›';
+        rightArrow.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_PreviewNext(); };
+        overlay.appendChild(rightArrow);
+        var previewImg = document.createElement('img');
+        previewImg.className = 'preview-bg-image';
+        previewImg.id = 'preview_main_img';
+        previewImg.src = preloader.src;
+        previewImg.onclick = function(e) { e.stopPropagation(); };
+        overlay.appendChild(previewImg);
+        var nameLabel = document.createElement('div');
+        nameLabel.className = 'preview-bg-name';
+        nameLabel.id = 'preview_name_label';
+        nameLabel.textContent = cur.path.split('/').pop() + ' — ' + (startIdx + 1) + ' / ' + allBgs.length;
+        overlay.appendChild(nameLabel);
+        modal.appendChild(overlay);
+        modal.style.display = 'block';
+    };
+    // If image is already cached (from the grid thumbnail), show immediately
+    if (preloader.complete) { showModal(); }
+    else { preloader.onload = showModal; preloader.onerror = showModal; }
 };
 window.DarkThemeEngine_UpdatePreview = function() {
     var p = window._BgPreview;
@@ -662,7 +720,7 @@ window.DarkThemeEngine_RenderAlbumCards = function() {
         html += '<div class="cat-card" style="' + (isAlbumDisabled ? 'opacity:0.5;' : '') + '" data-album="' + encodedKey + '" onclick="DarkThemeEngine_ShowAlbumDetail(decodeURIComponent(this.getAttribute(\'data-album\')))">';
         html += icon;
         html += '<div style="flex:1;overflow:hidden;">';
-        html += '<div style="font-size:1rem;font-weight:600;color:#f8fafc;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + alb.display + '</div>';
+        html += '<div style="font-size:1rem;font-weight:600;color:#f8fafc;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + window.DarkThemeEngine_EscapeHTML(alb.display) + '</div>';
         html += '<div style="font-size:0.85rem;color:#94a3b8;">' + alb.tracks.length + ' tracks</div>';
         if (isAlbumDisabled) html += '<div style="font-size:0.75rem;color:#f87171;margin-top:4px;font-weight:600;">DISABLED</div>';
         html += '</div></div>';
@@ -746,10 +804,10 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
     var isAlbumDisabled = !!disabledAlbums[albumKey];
     var encodedKey = encodeURIComponent(albumKey);
     var html = '';
-    html += '<div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;background:rgba(0,0,0,0.25);padding:12px 18px;border-radius:12px;border-left:4px solid #3b82f6;backdrop-filter:blur(5px);">';
+    html += '<div style="display:flex;align-items:center;gap:15px;margin-bottom:20px;background:rgba(0,0,0,0.35);padding:12px 18px;border-radius:12px;border-left:4px solid #3b82f6;">';
     html += '<button class="theme-btn" style="padding:10px 14px;background:rgba(255,255,255,0.1);border:none;" onclick="DarkThemeEngine_RenderAlbumCards();if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')">← Back</button>';
     html += '<div style="flex:1;">';
-    html += '<div style="font-size:1.1rem;font-weight:600;color:#f8fafc;margin-bottom:8px;">' + albObj.display + '</div>';
+    html += '<div style="font-size:1.1rem;font-weight:600;color:#f8fafc;margin-bottom:8px;">' + window.DarkThemeEngine_EscapeHTML(albObj.display) + '</div>';
     html += '<div style="display:flex;gap:8px;">';
     if (isAlbumDisabled) {
         html += '<button class="theme-btn" style="font-size:0.8rem;padding:6px 12px;background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3);" data-album="' + encodedKey + '" onclick="DarkThemeEngine_ToggleAlbumJS(decodeURIComponent(this.getAttribute(\'data-album\')), true)">✓ Enable Album</button>';
@@ -773,8 +831,8 @@ window.DarkThemeEngine_ShowAlbumDetail = function(albumKey) {
         else html += '<span style="font-size:24px;color:#94a3b8;">🎵</span>';
         html += '</div>';
         html += '<div style="flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;">';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1rem;font-weight:bold;color:#f8fafc;">' + (t.title || t.name || 'Unknown') + '</span>';
-        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;">' + (t.artist || 'Unknown Artist') + '</span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1rem;font-weight:bold;color:#f8fafc;">' + window.DarkThemeEngine_EscapeHTML(t.title || t.name || 'Unknown') + '</span>';
+        html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;">' + window.DarkThemeEngine_EscapeHTML(t.artist || 'Unknown Artist') + '</span>';
         html += '</div>';
         if (!isDisabled) html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
         else html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
@@ -797,7 +855,9 @@ window.DarkThemeEngine_SetCurrentMusic = function(path) {
         npEl.textContent = 'Now Playing: ' + (path && path !== '' ? path.split('/').pop().replace(/\.[^/.]+$/, '') : 'None');
     }
     window._DarkTheme_CurrentMusicPathJS = path || '';
-    
+    var pauseBtn = document.getElementById('music_btn_pause');
+    if (pauseBtn) pauseBtn.textContent = (path && path !== '') ? '⏸' : '▶';
+
     if (previousMusic !== path) {
         var barEl = document.getElementById('music_progress_fill');
         if (barEl) barEl.style.width = '0%';
@@ -851,8 +911,8 @@ window.DarkThemeEngine_RenderSpawnmenuUI = function(skins, activeSkin) {
              + '" onclick="DarkThemeEngine_LuaCall(\'DarkTheme_SetSpawnmenuSkin(\\x22' + safeN + '\\x22)\');if(typeof lua!==\'undefined\'&&lua.PlaySound)lua.PlaySound(\'garrysmod/ui_click.wav\')">';
         html += iconHtml;
         html += '<div style="flex:1;overflow:hidden;">';
-        html += '<div style="font-size:0.95rem;font-weight:' + (isActive ? '600' : '500') + ';color:' + (isActive ? '#60a5fa' : '#e2e8f0') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (s.display || s.name) + '</div>';
-        html += '<div style="font-size:0.78rem;color:#475569;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (s.name !== 'default' ? s.addon + ' · <code style="color:#334155;">' + s.name + '</code>' : 'Garry\'s Mod') + '</div>';
+        html += '<div style="font-size:0.95rem;font-weight:' + (isActive ? '600' : '500') + ';color:' + (isActive ? '#60a5fa' : '#e2e8f0') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + window.DarkThemeEngine_EscapeHTML(s.display || s.name) + '</div>';
+        html += '<div style="font-size:0.78rem;color:#475569;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + (s.name !== 'default' ? window.DarkThemeEngine_EscapeHTML(s.addon) + ' · <code style="color:#334155;">' + window.DarkThemeEngine_EscapeHTML(s.name) + '</code>' : 'Garry\'s Mod') + '</div>';
         html += '</div>';
         if (isActive) html += '<span style="font-size:0.78rem;font-weight:600;color:#3b82f6;background:rgba(59,130,246,0.15);padding:3px 10px;border-radius:12px;flex-shrink:0;">Active</span>';
         html += '</div>';
@@ -871,6 +931,30 @@ window.SetDarkThemeSpawnmenuImage = function(wsid, url) {
     var ph  = document.getElementById('spawn_ph_' + wsid);
     if (img) { img.src = url; img.style.display = ''; }
     if (ph)  ph.style.display = 'none';
+};
+window.DarkThemeEngine_SetFontSize = function(size) {
+    var el = document.getElementById('dt_menu_fontsize_style');
+    var slider = document.getElementById('opt_font_size');
+    var label = document.getElementById('opt_font_size_label');
+    var preview = document.getElementById('misc_font_preview');
+    if (!size || size <= 0) {
+        if (el) el.textContent = '';
+        if (slider) slider.value = 12;
+        if (label) label.textContent = 'Default';
+        if (preview) preview.style.fontSize = '';
+        DarkThemeEngine_LuaCall("DarkTheme_SetFontSize(0)");
+        return;
+    }
+    if (!el) {
+        el = document.createElement('style');
+        el.id = 'dt_menu_fontsize_style';
+        document.head.appendChild(el);
+    }
+    el.textContent = '* { font-size: ' + size + 'px !important; }';
+    if (slider) slider.value = size;
+    if (label) label.textContent = size + 'px';
+    if (preview) preview.style.fontSize = size + 'px';
+    DarkThemeEngine_LuaCall("DarkTheme_SetFontSize(" + size + ")");
 };
 window.DarkThemeEngine_ApplyMenuFont = function(fontName) {
     var prev = document.getElementById('misc_font_preview');
@@ -894,7 +978,7 @@ window.DarkThemeEngine_PreviewCustomFont = function(fontName) {
     if (prev) prev.style.fontFamily = fontName ? ("'" + fontName + "', sans-serif") : '';
 };
 window.DarkThemeEngine_SetMenuFont = function(fontName) {
-    DarkThemeEngine_LuaCall("DarkTheme_SetMenuFont('" + (fontName || '').replace(/'/g, "\\'") + "')");
+    DarkThemeEngine_LuaCall('DarkTheme_SetMenuFont("' + window.DarkThemeEngine_SafePathForLua(fontName || '') + '")');
     window.DarkThemeEngine_ApplyMenuFont(fontName);
     window.DarkThemeEngine_SetFontLabel(fontName || '');
     var listEl = document.getElementById('misc_font_list');
@@ -940,11 +1024,11 @@ window.DarkThemeEngine_ToggleFontDropdown = function() {
     for (var i = 0; i < allFonts.length; i++) {
         var f = allFonts[i];
         if (f.disabled) {
-            html += '<div style="padding:6px 12px;font-size:0.75rem;color:#475569;user-select:none;">' + f.label + '</div>';
+            html += '<div style="padding:6px 12px;font-size:0.75rem;color:#475569;user-select:none;">' + window.DarkThemeEngine_EscapeHTML(f.label) + '</div>';
         } else {
             var safeVal = (f.value || '').replace(/'/g, "\\'");
             var ff = f.value ? ("'" + f.value + "', sans-serif") : 'inherit';
-            html += '<div onclick="DarkThemeEngine_SetMenuFont(\'' + safeVal + '\')" style="padding:9px 14px;font-size:0.9rem;cursor:pointer;color:#e2e8f0;font-family:' + ff + ';transition:background 0.1s;" onmouseover="this.style.background=\'rgba(59,130,246,0.15)\'" onmouseout="this.style.background=\'\'">' + f.label + '</div>';
+            html += '<div onclick="DarkThemeEngine_SetMenuFont(\'' + safeVal + '\')" style="padding:9px 14px;font-size:0.9rem;cursor:pointer;color:#e2e8f0;font-family:' + ff + ';transition:background 0.1s;" onmouseover="this.style.background=\'rgba(59,130,246,0.15)\'" onmouseout="this.style.background=\'\'">' + window.DarkThemeEngine_EscapeHTML(f.label) + '</div>';
         }
     }
     listEl.innerHTML = html;
@@ -984,7 +1068,7 @@ window.DarkThemeEngine_ShowAddCustomBg = function() {
     var popup = document.createElement('div');
     popup.id = 'dt_addbg_popup';
     popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
-    popup.innerHTML = '<div style="background:rgba(15,23,42,0.98);backdrop-filter:blur(16px);border-radius:12px;padding:28px;width:420px;max-width:92vw;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px rgba(0,0,0,0.6);color:#e2e8f0;">'
+    popup.innerHTML = '<div style="background:rgba(15,23,42,0.98);border-radius:12px;padding:28px;width:420px;max-width:92vw;border:1px solid rgba(255,255,255,0.08);box-shadow:0 25px 50px rgba(0,0,0,0.6);color:#e2e8f0;">'
         + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">'
         + '<span style="font-size:1.1rem;font-weight:600;color:#f8fafc;">Add Custom Background</span>'
         + '<button id="dt_addbg_x" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:1.2rem;">✕</button>'
@@ -1031,7 +1115,9 @@ window.DarkThemeEngine_ShowAddCustomBg = function() {
         statusEl.textContent = '⏳ Downloading...';
         okBtn.disabled = true;
         okBtn.textContent = '⏳ Downloading...';
-        DarkThemeEngine_LuaCall("DarkTheme_SaveCustomBackground('" + url.replace(/'/g,"\\'") + "','" + name.replace(/'/g,"\\'") + "')");
+        var sUrl = window.DarkThemeEngine_SafePathForLua(url);
+        var sName = window.DarkThemeEngine_SafePathForLua(name);
+        DarkThemeEngine_LuaCall('DarkTheme_SaveCustomBackground("' + sUrl + '","' + sName + '")');
     };
     urlEl.focus();
 };
@@ -1132,8 +1218,10 @@ window.DarkThemeEngine_RenderMusicUI = function() {
                 else html += '<span style="font-size:24px;color:#94a3b8;">🎵</span>';
                 html += '</div>';
                 html += '<div style="flex:1;overflow:hidden;display:flex;flex-direction:column;justify-content:center;">';
-                html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1.1rem;font-weight:bold;margin-bottom:2px;color:#f8fafc;" title="' + (t.title || '').replace(/"/g, '&quot;') + '">' + (t.title || 'Unknown') + '</span>';
-                html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;font-weight:500;" title="' + (t.artist || '').replace(/"/g, '&quot;') + '">' + (t.artist || 'Unknown Artist') + '</span>';
+                var sTitle = (t.title || 'Unknown');
+                var sArtist = (t.artist || 'Unknown Artist');
+                html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1.1rem;font-weight:bold;margin-bottom:2px;color:#f8fafc;" title="' + window.DarkThemeEngine_EscapeHTML(sTitle) + '">' + window.DarkThemeEngine_EscapeHTML(sTitle) + '</span>';
+                html += '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem;color:#94a3b8;font-weight:500;" title="' + window.DarkThemeEngine_EscapeHTML(sArtist) + '">' + window.DarkThemeEngine_EscapeHTML(sArtist) + '</span>';
                 html += '</div>';
                 if (!isDisabled) html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(16,185,129,0.15);color:#34d399;border:1px solid rgba(16,185,129,0.3);">ENABLED</div>';
                 else html += '<div class="music-status-label" style="font-size:0.8rem;font-weight:bold;padding:6px 12px;border-radius:6px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);">DISABLED</div>';
@@ -1187,7 +1275,7 @@ window.DarkThemeEngine_OpenMusicPreview = function(index) {
 window.DarkThemeEngine_BuildMusicPreviewContent = function(card, track, index, total) {
     card.innerHTML = '';
     var closeBtn = document.createElement('div');
-    closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;font-size:1.2rem;border-radius:50%;background:rgba(255,255,255,0.05);transition:all 0.2s;border:1px solid rgba(255,255,255,0.08);';
+    closeBtn.style.cssText = 'position:absolute;top:12px;right:12px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#64748b;font-size:1.2rem;border-radius:50%;background:rgba(255,255,255,0.05);transition:color 0.2s,background 0.2s;border:1px solid rgba(255,255,255,0.08);';
     closeBtn.textContent = '✕';
     closeBtn.onclick = function() { DarkThemeEngine_CloseMusicPreview(); };
     closeBtn.onmouseover = function() { this.style.color='#fff'; this.style.background='rgba(239,68,68,0.3)'; };
@@ -1206,7 +1294,7 @@ window.DarkThemeEngine_BuildMusicPreviewContent = function(card, track, index, t
     }
     var infoDiv = document.createElement('div');
     infoDiv.style.cssText = 'text-align:center;width:100%;';
-    infoDiv.innerHTML = '<div style="font-size:1.5rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">' + (track.title || 'Unknown') + '</div><div style="font-size:1rem;color:#94a3b8;font-weight:500;">' + (track.artist || 'Unknown Artist') + '</div>';
+    infoDiv.innerHTML = '<div style="font-size:1.5rem;font-weight:700;color:#f8fafc;margin-bottom:4px;">' + window.DarkThemeEngine_EscapeHTML(track.title || 'Unknown') + '</div><div style="font-size:1rem;color:#94a3b8;font-weight:500;">' + window.DarkThemeEngine_EscapeHTML(track.artist || 'Unknown Artist') + '</div>';
     card.appendChild(infoDiv);
     if (track.desc) {
         var descDiv = document.createElement('div');
@@ -1216,7 +1304,7 @@ window.DarkThemeEngine_BuildMusicPreviewContent = function(card, track, index, t
     }
     var metaDiv = document.createElement('div');
     metaDiv.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;width:100%;margin-top:5px;';
-    metaDiv.innerHTML = '<div style="font-size:0.8rem;color:#64748b;word-break:break-all;">' + track.path + '</div>';
+    metaDiv.innerHTML = '<div style="font-size:0.8rem;color:#64748b;word-break:break-all;">' + window.DarkThemeEngine_EscapeHTML(track.path) + '</div>';
     if (track.youtube && (track.youtube.indexOf('youtube.com') !== -1 || track.youtube.indexOf('youtu.be') !== -1)) {
         var ytBtn = document.createElement('div');
         ytBtn.className = 'yt-button';
@@ -1228,7 +1316,7 @@ window.DarkThemeEngine_BuildMusicPreviewContent = function(card, track, index, t
     var navDiv = document.createElement('div');
     navDiv.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:20px;width:100%;margin-top:10px;padding-top:15px;border-top:1px solid rgba(255,255,255,0.06);';
     var prevBtn = document.createElement('div');
-    prevBtn.style.cssText = 'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:1.5rem;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);transition:all 0.2s;';
+    prevBtn.style.cssText = 'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:1.5rem;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);transition:color 0.2s,background 0.2s;';
     prevBtn.textContent = '‹';
     prevBtn.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_MusicPreviewPrev(); };
     prevBtn.onmouseover = function() { this.style.color='#fff'; this.style.background='rgba(59,130,246,0.2)'; };
@@ -1240,7 +1328,7 @@ window.DarkThemeEngine_BuildMusicPreviewContent = function(card, track, index, t
     counter.textContent = (index + 1) + ' / ' + total;
     navDiv.appendChild(counter);
     var nextBtn = document.createElement('div');
-    nextBtn.style.cssText = 'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:1.5rem;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);transition:all 0.2s;';
+    nextBtn.style.cssText = 'width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#94a3b8;font-size:1.5rem;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);transition:color 0.2s,background 0.2s;';
     nextBtn.textContent = '›';
     nextBtn.onclick = function(e) { e.stopPropagation(); DarkThemeEngine_MusicPreviewNext(); };
     nextBtn.onmouseover = function() { this.style.color='#fff'; this.style.background='rgba(59,130,246,0.2)'; };
@@ -1298,7 +1386,12 @@ window.DarkThemeEngine_InjectLink = function() {
         var li = document.createElement('li');
         var a = document.createElement('a');
         a.id = 'theme_options_btn'; a.href = '#/theme/'; a.className = 'ui_sound_return'; a.textContent = 'Theme Options';
+        a.style.position = 'relative';
         a.addEventListener('mouseenter', function() { if (typeof lua !== 'undefined' && lua.PlaySound) lua.PlaySound('garrysmod/ui_hover.wav'); });
+        var newDot = document.createElement('span');
+        newDot.id = 'dt_menu_new_dot';
+        newDot.style.cssText = 'display:none;position:absolute;top:2px;right:-12px;width:8px;height:8px;background:#ef4444;border-radius:50%;box-shadow:0 0 8px rgba(239,68,68,0.8);pointer-events:none;';
+        a.appendChild(newDot);
         li.appendChild(a);
         var optionsLi = optionsLink.parentElement;
         if (optionsLi && optionsLi.parentElement) optionsLi.parentElement.insertBefore(li, optionsLi.nextSibling);
@@ -1316,8 +1409,8 @@ window.DarkThemeEngine_CleanupAllOverlays = function() {
 window.addEventListener('hashchange', function() {
     var hash = window.location.hash;
     if (hash === '#/' || hash === '#' || hash === '') {
-        setTimeout(window.DarkThemeEngine_InjectLink, 50);
-        setTimeout(window.DarkThemeEngine_InjectLink, 200);
+        setTimeout(function() { window.DarkThemeEngine_InjectLink(); if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew(); }, 50);
+        setTimeout(function() { window.DarkThemeEngine_InjectLink(); if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew(); }, 200);
         setTimeout(window.DarkThemeEngine_InjectMiniPlayer, 250);
         if (window._DarkTheme_IsAnniversary) {
             setTimeout(window.DarkThemeEngine_SwapAnniLogo, 100);
@@ -1325,12 +1418,15 @@ window.addEventListener('hashchange', function() {
         }
     }
     window.DarkThemeEngine_CleanupAllOverlays();
+    if (hash.indexOf('#/theme') === 0) {
+        setTimeout(function() { if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew(); }, 100);
+    }
 });
 setTimeout(function() {
     try {
         var scope = angular.element(document.body).scope();
         if (scope && scope.$on) scope.$on('$routeChangeSuccess', function() {
-            setTimeout(window.DarkThemeEngine_InjectLink, 50);
+            setTimeout(function() { window.DarkThemeEngine_InjectLink(); if(window.DarkThemeEngine_CheckChangelogNew) window.DarkThemeEngine_CheckChangelogNew(); }, 50);
             if (window._DarkTheme_IsAnniversary) setTimeout(window.DarkThemeEngine_SwapAnniLogo, 100);
             window.DarkThemeEngine_CleanupAllOverlays();
         });
@@ -1386,7 +1482,7 @@ DarkThemeEngine._UI.AnniversaryJS = [==[
     }, 200);
     if (eatenDate !== currentDayString) {
         var backdrop = document.createElement('div');
-        backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);backdrop-filter:blur(10px);z-index:99998;display:flex;justify-content:center;align-items:center;transition:opacity 1.5s ease-in-out;';
+        backdrop.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.92);z-index:99998;display:flex;justify-content:center;align-items:center;transition:opacity 1.5s ease-in-out;';
         var cake = document.createElement('img');
         cake.src = '../materials/theme_engine/Cake.png';
         cake.style.cssText = 'width:400px;height:auto;cursor:pointer;z-index:99999;transition:transform 0.25s cubic-bezier(0.175,0.885,0.32,1.275),opacity 0.5s;filter:drop-shadow(0px 15px 30px rgba(0,0,0,0.8));';

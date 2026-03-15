@@ -578,6 +578,61 @@ function DarkTheme_UpdateMusicPlaylist()
     DarkTheme_PlayStartupMusic()
 end
 
+local function DarkTheme_LightPlaylistUpdate()
+    if not IsValid(pnlMainMenu) then return end
+    if not IsMusicPlaying then
+        DarkTheme_PlayStartupMusic()
+        return
+    end
+
+    local settings = DarkThemeEngine.Settings or {}
+    local themeOpts = settings.ThemeOptions or {}
+    if not themeOpts.EnableMusic then
+        DarkTheme_PlayStartupMusic()
+        return
+    end
+
+    local disabledMusic = settings.DisabledMusic or {}
+    local disabledAlbums = settings.DisabledAlbums or {}
+    local validPaths = {}
+    for _, snd in ipairs(DarkThemeEngine.AllMusic) do
+        if not disabledMusic[snd.path] and not disabledAlbums[snd.album or ""] then
+            table.insert(validPaths, snd.path)
+        end
+    end
+
+    if #validPaths == 0 then
+        DarkThemeEngine.CallJS("if(window.DarkTheme_AudioNode){window.DarkTheme_AudioNode.onended=null;window.DarkTheme_AudioNode.onerror=null;window.DarkTheme_AudioNode.pause();window.DarkTheme_AudioNode=null;}if(window.DarkThemeEngine_SetCurrentMusic)window.DarkThemeEngine_SetCurrentMusic('');")
+        IsMusicPlaying = false
+        return
+    end
+
+    local isPlaylist = themeOpts.Music_PlaylistMode
+    if isPlaylist == nil then isPlaylist = true end
+    local isShuffle = themeOpts.Music_Shuffle
+    if isShuffle == nil then isShuffle = false end
+
+    DarkThemeEngine.CallJS(string.format([[
+        (function(){
+            if (!window.DarkTheme_AudioNode || !window.DarkTheme_PlayNextTrack) {
+                DarkThemeEngine_LuaCall('DarkTheme_PlayStartupMusic()');
+                return;
+            }
+            var newList = JSON.parse("%s");
+            var curPath = window.DarkTheme_MusicPlaylist && window.DarkTheme_MusicPlaylist[window.DarkTheme_MusicIndex];
+            window.DarkTheme_MusicPlaylist = newList;
+            window.DarkTheme_PlaylistMode = %s;
+            window.DarkTheme_ShuffleMode = %s;
+            if (curPath && newList.indexOf(curPath) !== -1) {
+                window.DarkTheme_MusicIndex = newList.indexOf(curPath);
+            } else if (newList.length > 0) {
+                window.DarkTheme_MusicIndex = 0;
+                window.DarkTheme_PlayNextTrack(false);
+            }
+        })();
+    ]], string.JavascriptSafe(util.TableToJSON(validPaths)), tostring(isPlaylist), tostring(isShuffle)))
+end
+
 function DarkThemeEngine_SetMusicOption(key, value)
     DarkThemeEngine.Settings.ThemeOptions = DarkThemeEngine.Settings.ThemeOptions or {}
     DarkThemeEngine.Settings.ThemeOptions[key] = value
@@ -586,7 +641,15 @@ function DarkThemeEngine_SetMusicOption(key, value)
     if key == "EnableMusic" then
         DarkTheme_PlayStartupMusic()
     elseif key == "Music_PlaylistMode" or key == "Music_Shuffle" then
-        DarkTheme_UpdateMusicPlaylist()
+        if IsMusicPlaying and IsValid(pnlMainMenu) then
+            DarkThemeEngine.CallJS(string.format(
+                "window.DarkTheme_PlaylistMode=%s;window.DarkTheme_ShuffleMode=%s;",
+                tostring((DarkThemeEngine.Settings.ThemeOptions or {}).Music_PlaylistMode or false),
+                tostring((DarkThemeEngine.Settings.ThemeOptions or {}).Music_Shuffle or false)
+            ))
+        else
+            DarkTheme_PlayStartupMusic()
+        end
     elseif key == "Music_Volume" then
         local safeVol = math.max(0, math.min(1, value))
         lastVolume = safeVol
@@ -602,13 +665,13 @@ function DarkThemeEngine_ToggleMusic(musicPath)
         DarkThemeEngine.Settings.DisabledMusic[musicPath] = true
     end
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
 
 function DarkThemeEngine_EnableAllMusic()
     DarkThemeEngine.Settings.DisabledMusic = {}
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
 
 function DarkThemeEngine_DisableAllMusic()
@@ -617,7 +680,7 @@ function DarkThemeEngine_DisableAllMusic()
         DarkThemeEngine.Settings.DisabledMusic[snd.path] = true
     end
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
 
 timer.Create("DarkThemeEngine_Music_Poll", 1, 0, function()
@@ -625,7 +688,29 @@ timer.Create("DarkThemeEngine_Music_Poll", 1, 0, function()
     if bInGame then
         if IsMusicPlaying then
             if IsValid(pnlMainMenu) and IsValid(pnlMainMenu.HTML) then
-                DarkThemeEngine.CallJS("if(window.DarkTheme_AudioNode){window.DarkTheme_AudioNode.onended=null;window.DarkTheme_AudioNode.onerror=null;window.DarkTheme_AudioNode.pause();window.DarkTheme_AudioNode=null;}")
+                -- Fade out music over 1 second instead of abrupt stop
+                DarkThemeEngine.CallJS([[
+                    (function(){
+                        var node = window.DarkTheme_AudioNode;
+                        if (!node) return;
+                        node.onended = null;
+                        node.onerror = null;
+                        var vol = node.volume;
+                        var steps = 20;
+                        var interval = 50;
+                        var decay = vol / steps;
+                        var fadeTimer = setInterval(function(){
+                            vol -= decay;
+                            if (vol <= 0.01) {
+                                clearInterval(fadeTimer);
+                                node.pause();
+                                window.DarkTheme_AudioNode = null;
+                            } else {
+                                node.volume = vol;
+                            }
+                        }, interval);
+                    })();
+                ]])
             end
             IsMusicPlaying = false
         end
@@ -691,7 +776,7 @@ end
 
 local _lastKnownMusicCount = -1
 
-timer.Create("DarkThemeEngine_MusicFileWatch", 5, 0, function()
+timer.Create("DarkThemeEngine_MusicFileWatch", 15, 0, function()
     if IsInGame() or IsInLoading() then return end
     local current = CountMusicFiles()
     if _lastKnownMusicCount == -1 then
@@ -726,19 +811,19 @@ function DarkThemeEngine_ToggleAlbum(albumName)
         DarkThemeEngine.Settings.DisabledAlbums[albumName] = true
     end
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
 
 function DarkThemeEngine_EnableAlbum(albumName)
     DarkThemeEngine.Settings.DisabledAlbums = DarkThemeEngine.Settings.DisabledAlbums or {}
     DarkThemeEngine.Settings.DisabledAlbums[albumName] = nil
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
 
 function DarkThemeEngine_DisableAlbum(albumName)
     DarkThemeEngine.Settings.DisabledAlbums = DarkThemeEngine.Settings.DisabledAlbums or {}
     DarkThemeEngine.Settings.DisabledAlbums[albumName] = true
     DarkThemeEngine.SaveSettings()
-    DarkTheme_UpdateMusicPlaylist()
+    DarkTheme_LightPlaylistUpdate()
 end
