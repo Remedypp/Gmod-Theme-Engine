@@ -303,33 +303,45 @@ window.DarkThemeEngine_ShowChangelog = function() {
     if (btn) { btn.style.background = ''; btn.style.color = ''; btn.style.borderColor = ''; btn.style.fontWeight = ''; btn.title = ''; }
     document.getElementById('dt_changelog_x').onclick = function() { panel.remove(); };
 };
+window.DarkThemeEngine_ApplyChangelogIndicator = function(isNew, currentVer) {
+    var btn = document.getElementById('dt_changelog_btn');
+    var dot = document.getElementById('dt_changelog_new');
+    var menuDot = document.getElementById('dt_menu_new_dot');
+    if (!btn) return false;
+    if (isNew) {
+        btn.style.background = 'rgba(239,68,68,0.18)';
+        btn.style.color = '#fca5a5';
+        btn.style.borderColor = 'rgba(239,68,68,0.4)';
+        btn.style.fontWeight = '600';
+        btn.title = 'New update: ' + currentVer;
+        if (dot) dot.style.display = 'block';
+        if (menuDot) menuDot.style.display = 'block';
+    } else {
+        btn.style.background = '';
+        btn.style.color = '';
+        btn.style.borderColor = '';
+        btn.style.fontWeight = '';
+        btn.title = '';
+        if (dot) dot.style.display = 'none';
+        if (menuDot) menuDot.style.display = 'none';
+    }
+    return true;
+};
 window.DarkThemeEngine_CheckChangelogNew = function() {
     var currentVer = (window._DarkThemeChangelog && window._DarkThemeChangelog[0]) ? window._DarkThemeChangelog[0].ver : '';
     var seen = window._DarkTheme_LastSeenChangelog || '';
     var isNew = (currentVer !== '' && seen !== currentVer);
-    var btn = document.getElementById('dt_changelog_btn');
-    var dot = document.getElementById('dt_changelog_new');
-    var menuDot = document.getElementById('dt_menu_new_dot');
-    if (isNew) {
-        if (btn) {
-            btn.style.background = 'rgba(239,68,68,0.18)';
-            btn.style.color = '#fca5a5';
-            btn.style.borderColor = 'rgba(239,68,68,0.4)';
-            btn.style.fontWeight = '600';
-            btn.title = 'New update: ' + currentVer;
-        }
-        if (dot) dot.style.display = 'block';
-        if (menuDot) menuDot.style.display = 'block';
-    } else {
-        if (btn) {
-            btn.style.background = '';
-            btn.style.color = '';
-            btn.style.borderColor = '';
-            btn.style.fontWeight = '';
-            btn.title = '';
-        }
-        if (dot) dot.style.display = 'none';
-        if (menuDot) menuDot.style.display = 'none';
+    var applied = window.DarkThemeEngine_ApplyChangelogIndicator(isNew, currentVer);
+    if (!applied) {
+        if (window._DT_ChangelogRetryTimer) clearInterval(window._DT_ChangelogRetryTimer);
+        var retries = 0;
+        window._DT_ChangelogRetryTimer = setInterval(function() {
+            retries++;
+            if (window.DarkThemeEngine_ApplyChangelogIndicator(isNew, currentVer) || retries > 20) {
+                clearInterval(window._DT_ChangelogRetryTimer);
+                window._DT_ChangelogRetryTimer = null;
+            }
+        }, 250);
     }
 };
 window.DarkThemeEngine_FilterBgs = function() {

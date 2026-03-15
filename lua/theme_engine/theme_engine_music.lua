@@ -492,12 +492,17 @@ function DarkTheme_PlayStartupMusic()
                     if (window.DarkThemeEngine_SetCurrentMusic) window.DarkThemeEngine_SetCurrentMusic(trackPath);
                     if (window.DarkThemeEngine_LuaCall && window.DarkThemeEngine_SafePathForLua) window.DarkThemeEngine_LuaCall("DarkThemeEngine_SetCurrentMusicFromJS('" + window.DarkThemeEngine_SafePathForLua(trackPath) + "')");
                     
-                    var finalUrl = (trackPath.indexOf('sound/') === 0 || trackPath.indexOf('data/') === 0)
-                        ? 'asset://garrysmod/' + trackPath
-                        : 'asset://garrysmod/sound/' + trackPath;
-                    var node = new Audio(finalUrl);
-                    node.volume = (window.DarkTheme_MusicVolume != null) ? window.DarkTheme_MusicVolume : 0.6;
-                    
+                    var isDataPath = (trackPath.indexOf('data/') === 0);
+                    var urlCandidates = [];
+                    if (isDataPath) {
+                        urlCandidates.push('asset://garrysmod/' + trackPath);
+                        urlCandidates.push('../' + trackPath);
+                    } else if (trackPath.indexOf('sound/') === 0) {
+                        urlCandidates.push('asset://garrysmod/' + trackPath);
+                    } else {
+                        urlCandidates.push('asset://garrysmod/sound/' + trackPath);
+                    }
+
                     window.DarkTheme_FormatTime = function(seconds) {
                         if (isNaN(seconds) || !isFinite(seconds)) return "00:00";
                         var m = Math.floor(seconds / 60);
@@ -505,51 +510,68 @@ function DarkTheme_PlayStartupMusic()
                         return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
                     };
 
-                    node.addEventListener('timeupdate', function() {
-                        var c = node.currentTime;
-                        var d = node.duration;
-                        if (!isNaN(d) && isFinite(d) && d > 0) {
-                            var pct = (c / d) * 100;
-                            var barEl = document.getElementById('music_progress_fill');
-                            if (barEl) barEl.style.width = pct + '%%';
+                    var _DT_SetupAudioNode = function(url, fallbackUrls) {
+                        var node = new Audio(url);
+                        node.volume = (window.DarkTheme_MusicVolume != null) ? window.DarkTheme_MusicVolume : 0.6;
 
-                            var lblEl = document.getElementById('music_time_label');
-                            if (lblEl) lblEl.textContent = window.DarkTheme_FormatTime(c) + " / " + window.DarkTheme_FormatTime(d);
-                        }
-                    });
+                        node.addEventListener('timeupdate', function() {
+                            var c = node.currentTime;
+                            var d = node.duration;
+                            if (!isNaN(d) && isFinite(d) && d > 0) {
+                                var pct = (c / d) * 100;
+                                var barEl = document.getElementById('music_progress_fill');
+                                if (barEl) barEl.style.width = pct + '%%';
+                                var lblEl = document.getElementById('music_time_label');
+                                if (lblEl) lblEl.textContent = window.DarkTheme_FormatTime(c) + " / " + window.DarkTheme_FormatTime(d);
+                            }
+                        });
 
-                    window.DarkTheme_AudioNode = node;
-                    var p = node.play();
-                    if (p && p.catch) {
-                        p.then(function() { window._DT_MusicLocked = false; })
-                         .catch(function(e) {
-                            node.onerror = null;
+                        window.DarkTheme_AudioNode = node;
+                        var p = node.play();
+                        if (p && p.catch) {
+                            p.then(function() { window._DT_MusicLocked = false; })
+                             .catch(function(e) {
+                                node.onerror = null;
+                                window._DT_MusicLocked = false;
+                                if (!e || e.name !== 'NotAllowedError') {
+                                    if (fallbackUrls && fallbackUrls.length > 0) {
+                                        var nextUrl = fallbackUrls.shift();
+                                        _DT_SetupAudioNode(nextUrl, fallbackUrls);
+                                    } else {
+                                        window._DT_FailedTracks[trackPath] = true;
+                                        window.DarkTheme_PlayNextTrack(true);
+                                    }
+                                }
+                            });
+                        } else {
                             window._DT_MusicLocked = false;
-                            if (!e || e.name !== 'NotAllowedError') {
+                        }
+                        node.onended = (function(n) { return function() {
+                            window._DT_MusicLocked = false;
+                            setTimeout(function() {
+                                if (window.DarkTheme_PlaylistMode) {
+                                    window.DarkTheme_PlayNextTrack(true);
+                                } else {
+                                    n.currentTime = 0;
+                                    var rp = n.play();
+                                    if (rp && rp.catch) rp.catch(function(){});
+                                }
+                            }, 300);
+                        }; })(node);
+                        node.onerror = function() {
+                            window._DT_MusicLocked = false;
+                            if (fallbackUrls && fallbackUrls.length > 0) {
+                                var nextUrl = fallbackUrls.shift();
+                                _DT_SetupAudioNode(nextUrl, fallbackUrls);
+                            } else {
                                 window._DT_FailedTracks[trackPath] = true;
                                 window.DarkTheme_PlayNextTrack(true);
                             }
-                        });
-                    } else {
-                        window._DT_MusicLocked = false;
-                    }
-                    node.onended = (function(n) { return function() {
-                        window._DT_MusicLocked = false;
-                        setTimeout(function() {
-                            if (window.DarkTheme_PlaylistMode) {
-                                window.DarkTheme_PlayNextTrack(true);
-                            } else {
-                                n.currentTime = 0;
-                                var rp = n.play();
-                                if (rp && rp.catch) rp.catch(function(){});
-                            }
-                        }, 300);
-                    }; })(node);
-                    node.onerror = function() {
-                        window._DT_MusicLocked = false;
-                        window._DT_FailedTracks[trackPath] = true;
-                        window.DarkTheme_PlayNextTrack(true);
+                        };
                     };
+
+                    var primaryUrl = urlCandidates.shift();
+                    _DT_SetupAudioNode(primaryUrl, urlCandidates);
                 };
 
                 if (shouldStartNewTrack) {

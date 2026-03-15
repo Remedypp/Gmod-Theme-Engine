@@ -14,12 +14,21 @@ DarkThemeEngine.Credits = {
 }
 
 DarkThemeEngine.Changelog = {
+    { ver = "0.2.6-beta", tag = "patch", changes = {
+        "Fixed changelog 'new' indicator not showing (DOM race condition)",
+        "Fixed game freezing when opening the Backgrounds tab",
+        "Fixed custom music from data/ folder not playing (fallback URL system)",
+        "Added Miscellaneous section to Help panel",
+    }},
     { ver = "0.2.5-beta", changes = {
         "NEW: Pause/Resume and Skip buttons for menu music",
         "NEW: Font Size slider in Miscellaneous tab",
         "NEW: Console commands 'theme_engine' / 'theme_engine_open' to open settings",
         "NEW: Music fades out smoothly when entering a game instead of cutting abruptly",
-        "FIX: Changelog 'new' indicator now works reliably",
+        "NEW: Miscellaneous section in Help with data folders, commands, and tips",
+        "FIX: Changelog 'new' indicator now works reliably (fixed race condition with DOM)",
+        "FIX: Background tab no longer freezes the game (removed unnecessary filesystem rescans)",
+        "FIX: Custom music from data/ folder now uses fallback URLs if primary path fails",
         "OPTIMIZED: Removed all backdrop-filter blur effects (major GPU performance gain)",
         "OPTIMIZED: Replaced all 'transition: all' with specific properties (13 instances)",
         "OPTIMIZED: Spawnmenu skin no longer polls disk every 2 seconds",

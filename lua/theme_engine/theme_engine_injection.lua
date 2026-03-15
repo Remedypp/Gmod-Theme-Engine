@@ -19,9 +19,10 @@ local function InjectThemeIntoMenu()
     DarkThemeEngine.CallJS(string.format("window.DarkTheme_CakeEaten_Date = '%s';", string.JavascriptSafe(eatenDate)))
     DarkThemeEngine.CallJS(DarkThemeEngine._UI.AnniversaryJS)
     DarkThemeEngine.CallJS(string.format(
-        "window._DarkThemeChangelog = %s; window._DarkThemeCredits = %s;",
+        "window._DarkThemeChangelog = %s; window._DarkThemeCredits = %s; window._DarkThemeMiniChangelog = %s;",
         util.TableToJSON(DarkThemeEngine.Changelog or {}),
-        util.TableToJSON(DarkThemeEngine.Credits or {})
+        util.TableToJSON(DarkThemeEngine.Credits or {}),
+        util.TableToJSON(DarkThemeEngine.MiniChangelog or {})
     ))
     local themeOpts = DarkThemeEngine.Settings.ThemeOptions or {}
     DarkThemeEngine.CallJS(string.format(

@@ -614,8 +614,10 @@ function DarkThemeEngine.SendBackgroundsToJS()
     if not IsValid(pnlMainMenu) then return end
 
     local now = SysTime()
-    if not CachedBgJSON or not DarkThemeEngine._lastScanTime or (now - DarkThemeEngine._lastScanTime) > 10 then
+    if not CachedBgJSON or #DarkThemeEngine.AllBackgrounds == 0 then
         DarkThemeEngine.ScanBackgrounds()
+        DarkThemeEngine._lastScanTime = now
+    elseif not DarkThemeEngine._lastScanTime then
         DarkThemeEngine._lastScanTime = now
     end
 
