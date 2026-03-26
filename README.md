@@ -4,13 +4,14 @@
 
 **A complete theme engine for the Garry's Mod main menu**
 
-[![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-1b2838?style=for-the-badge&logo=steam&logoColor=white)](https://steamcommunity.com/sharedfiles/filedetails/?id=3679295208)
 [![Lua](https://img.shields.io/badge/Lua-5.1-2C2D72?style=for-the-badge&logo=lua&logoColor=white)](https://www.lua.org/)
 
 </div>
 
----
+> ⚠️ **Note:** The Steam Workshop version is currently unavailable because it was removed by Facepunch for breaking a rule.  
+> I’m currently looking into a way to make it work without modifying `menu.lua`, if possible.
 
+---
 ## Features
 
 - Switch between **Dark** and **Light** visual themes for the entire main menu UI
