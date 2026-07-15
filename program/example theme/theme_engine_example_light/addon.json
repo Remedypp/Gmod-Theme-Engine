@@ -1,0 +1,11 @@
+{
+  "title": "Theme Engine - GMod Light Example",
+  "type": "tool",
+  "tags": ["fun", "realism"],
+  "ignore": [
+    "source/*",
+    "source/**/*",
+    "build_theme.ps1",
+    "README.txt"
+  ]
+}

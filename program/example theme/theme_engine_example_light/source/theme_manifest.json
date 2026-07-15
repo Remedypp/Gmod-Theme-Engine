@@ -1,0 +1,8 @@
+{
+  "name": "GMod Light Example",
+  "description": "Editable full-menu baseline generated from the stock Garry's Mod menu HTML and CSS.",
+  "author": "Theme Engine",
+  "version": "1.0.0",
+  "kind": "full",
+  "folder": "theme_engine_example_light"
+}
