@@ -87,3 +87,8 @@ Install and Fix copy the loader and startup logo, then add one include line to e
 
 Native UI installation is separate. It copies only selected `resource/*.res` and font files after confirmation and keeps backups of the replaced destination resources for explicit restore.
 
+<div align="center">
+
+*Made with ❤️ by RemedyDev*
+
+</div>
