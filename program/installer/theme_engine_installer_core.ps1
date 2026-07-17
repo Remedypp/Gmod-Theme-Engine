@@ -1,7 +1,13 @@
 function Test-GModPath([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
-    return (Test-Path (Join-Path $Path 'lua\includes\init.lua')) -and
-           (Test-Path (Join-Path $Path 'lua\includes\init_menu.lua'))
+    try {
+        $init = Join-Path $Path 'lua\includes\init.lua'
+        $initMenu = Join-Path $Path 'lua\includes\init_menu.lua'
+        return (Test-Path -LiteralPath $init -PathType Leaf -ErrorAction SilentlyContinue) -and
+               (Test-Path -LiteralPath $initMenu -PathType Leaf -ErrorAction SilentlyContinue)
+    } catch {
+        return $false
+    }
 }
 
 function Get-ThemeEngineLogoTarget([string]$GModPath) {
@@ -87,13 +93,16 @@ function Get-GModCandidates {
     }
     foreach ($steamRoot in @($roots)) {
         if (-not $steamRoot) { continue }
-        $vdf = Join-Path $steamRoot 'steamapps\libraryfolders.vdf'
-        if (Test-Path $vdf) {
-            $raw = Get-Content -LiteralPath $vdf -Raw
-            foreach ($match in [regex]::Matches($raw, '"path"\s+"([^"]+)"')) {
-                $roots.Add(($match.Groups[1].Value -replace '\\\\', '\'))
+        try {
+            $vdf = Join-Path $steamRoot 'steamapps\libraryfolders.vdf'
+            if (Test-Path -LiteralPath $vdf -PathType Leaf -ErrorAction SilentlyContinue) {
+                $raw = Get-Content -LiteralPath $vdf -Raw -ErrorAction Stop
+                foreach ($match in [regex]::Matches($raw, '"path"\s+"([^"]+)"')) {
+                    $libraryRoot = $match.Groups[1].Value -replace '\\\\', '\'
+                    if (-not [string]::IsNullOrWhiteSpace($libraryRoot)) { $roots.Add($libraryRoot) }
+                }
             }
-        }
+        } catch {}
     }
 
     $seen = @{}
@@ -105,12 +114,13 @@ function Get-GModCandidates {
     }
     foreach ($root in $roots) {
         if (-not $root) { continue }
-        $candidate = Join-Path $root 'steamapps\common\GarrysMod\garrysmod'
-        try { $candidate = [IO.Path]::GetFullPath($candidate) } catch { continue }
-        if (-not $seen[$candidate] -and (Test-GModPath $candidate)) {
-            $seen[$candidate] = $true
-            $candidate
-        }
+        try {
+            $candidate = [IO.Path]::GetFullPath((Join-Path $root 'steamapps\common\GarrysMod\garrysmod'))
+            if (-not $seen[$candidate] -and (Test-GModPath $candidate)) {
+                $seen[$candidate] = $true
+                $candidate
+            }
+        } catch {}
     }
 }
 
