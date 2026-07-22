@@ -1,0 +1,36 @@
+[package]
+name = "aperture-theme-engine-installer"
+version = "1.1.0"
+edition = "2024"
+rust-version = "1.92"
+description = "Cross-platform installer for Aperture Theme Engine"
+
+[dependencies]
+directories = "6.0.0"
+eframe = { version = "0.35.0", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+image = { version = "0.25.9", default-features = false, features = ["png"] }
+include_dir = "0.7.4"
+open = "5.4.0"
+regex = "1.12.2"
+rfd = "0.17.2"
+sha2 = "0.10.9"
+sysinfo = "0.39.6"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55.0"
+
+[dev-dependencies]
+tempfile = "3.23.0"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[package.metadata.bundle]
+name = "Aperture Theme Engine Installer"
+identifier = "com.remedypp.aperture-theme-engine-installer"
+icon = ["assets/logo.png"]
+category = "Utility"
+short_description = "Install, repair, or remove Aperture Theme Engine"
+
