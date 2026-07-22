@@ -3,6 +3,11 @@
 
 
 local THEME_ENGINE_WSID = "3765005303"
+local THEME_ENGINE_TEST_WSID = "3679454495"
+local THEME_ENGINE_WSIDS = {
+    [THEME_ENGINE_WSID] = true,
+    [THEME_ENGINE_TEST_WSID] = true,
+}
 local TAG = "[ThemeEngine] "
 local _tModuleLoad = SysTime()
 
@@ -24,8 +29,19 @@ local loaderOverlayStartedAt = SysTime()
 local loaderOverlayStatus = "WAITING FOR WORKSHOP"
 local loaderOverlayMode = "loading"
 local loaderOverlayDetail = ""
+local loaderOverlayDismissed = false
+local loaderLoadedOnce = false
+local loaderErrorPopup = nil
+local loaderErrorNoticeShown = false
 local IsAddonMounted
 local GetAddonInfo
+local CheckAndLoad
+local loaderOriginalBackgroundFunctions = (DarkThemeEngine and DarkThemeEngine._OriginalBackgroundFunctions) or {
+    ClearBackgroundImages = _G.ClearBackgroundImages,
+    AddBackgroundImage = _G.AddBackgroundImage,
+    ChangeBackground = _G.ChangeBackground,
+    DrawBackground = _G.DrawBackground,
+}
 
 local loaderLogoMaterial = nil
 local loaderFontScaleKey = nil
@@ -149,6 +165,7 @@ end
 
 function ThemeEngine_ShowStartupOverlay()
     if not MENU_DLL then return nil end
+    if loaderOverlayDismissed then return nil end
     if IsValid(loaderOverlay) then
         loaderOverlay:SetAlpha(255)
         loaderOverlay:MoveToFront()
@@ -169,7 +186,7 @@ function ThemeEngine_ShowStartupOverlay()
     loaderOverlayStartedAt = SysTime()
     loaderOverlay = vgui.Create("DPanel", pnlMainMenu)
     loaderOverlay:Dock(FILL)
-    loaderOverlay:SetZPos(32767)
+    loaderOverlay:SetZPos(30000)
     loaderOverlay:SetMouseInputEnabled(true)
     loaderOverlay:SetKeyboardInputEnabled(false)
     loaderOverlay.Paint = function(_, w, h)
@@ -230,7 +247,8 @@ function ThemeEngine_ShowStartupOverlay()
     loaderQuitButton:SetSize(176, 40)
     loaderQuitButton:SetCursor("hand")
     loaderQuitButton.DoClick = function()
-        if RunGameUICommand then RunGameUICommand("quit") end
+        loaderOverlayDismissed = true
+        ThemeEngine_HideStartupOverlay(true)
     end
     loaderQuitButton.Paint = function(button, w, h)
         local hovered = button:IsHovered()
@@ -253,10 +271,100 @@ function ThemeEngine_ShowStartupOverlay()
     return loaderOverlay
 end
 
-function ThemeEngine_HideStartupOverlay()
+local function HideAddonErrorNotice()
+    timer.Remove("ThemeEngine_MasterAddonErrorNotice")
+    if not IsValid(loaderErrorPopup) then
+        loaderErrorPopup = nil
+        return
+    end
+    local panel = loaderErrorPopup
+    panel:AlphaTo(0, 0.2, 0, function()
+        if IsValid(panel) then panel:Remove() end
+        if loaderErrorPopup == panel then loaderErrorPopup = nil end
+    end)
+end
+
+local function ClearAddonErrorState()
+    timer.Remove("ThemeEngine_MasterAddonErrorNotice")
+    loaderErrorNoticeShown = false
+    if IsValid(loaderErrorPopup) then loaderErrorPopup:Remove() end
+    loaderErrorPopup = nil
+end
+
+local function ShowAddonErrorNotice()
+    if not MENU_DLL or loaderErrorNoticeShown or not IsValid(pnlMainMenu) then return end
+    if IsAddonMounted and IsAddonMounted() then return end
+    loaderErrorNoticeShown = true
+
+    if file.Exists("sound/error.wav", "GAME") then
+        surface.PlaySound("error.wav")
+    else
+        surface.PlaySound("buttons/button10.wav")
+    end
+
+    if IsValid(loaderErrorPopup) then loaderErrorPopup:Remove() end
+    loaderErrorPopup = vgui.Create("DPanel", pnlMainMenu)
+    loaderErrorPopup:SetZPos(31000)
+    loaderErrorPopup:SetAlpha(0)
+    loaderErrorPopup:SetMouseInputEnabled(true)
+    loaderErrorPopup.Paint = function(_, w, h)
+        surface.SetDrawColor(16, 22, 26, 250)
+        surface.DrawRect(0, 0, w, h)
+        surface.SetDrawColor(238, 139, 112, 235)
+        surface.DrawRect(0, 0, 4, h)
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        DrawLoaderText("THEME ENGINE ADDON UNAVAILABLE", "ThemeEngineLoaderLabel", 18, 12, Color(238, 139, 112))
+        DrawLoaderWrappedText("Workshop item " .. THEME_ENGINE_WSID .. " is not mounted. Re-enable it in Addons to restore Theme Engine.", "ThemeEngineLoaderData", (w - 92) * 0.5, 38, w - 210, Color(190, 205, 211), 14)
+    end
+    loaderErrorPopup.PerformLayout = function(panel)
+        local sw, sh = pnlMainMenu:GetWide(), pnlMainMenu:GetTall()
+        local width = math.Clamp(math.floor(sw * 0.62), 420, 900)
+        panel:SetSize(width, 74)
+        panel:SetPos(math.floor((sw - width) * 0.5), math.Clamp(math.floor(sh * 0.035), 16, 42))
+    end
+    loaderErrorPopup:InvalidateLayout(true)
+
+    local close = vgui.Create("DButton", loaderErrorPopup)
+    close:SetText("")
+    close:SetSize(92, 38)
+    close:SetPos(loaderErrorPopup:GetWide() - 104, 18)
+    close:SetCursor("hand")
+    close:SetMouseInputEnabled(true)
+    close:SetKeyboardInputEnabled(false)
+    close.Paint = function(button, w, h)
+        local hovered = button:IsHovered()
+        surface.SetDrawColor(hovered and Color(238, 139, 112, 70) or Color(255, 255, 255, 8))
+        surface.DrawRect(0, 0, w, h)
+        surface.SetDrawColor(hovered and Color(238, 139, 112, 220) or Color(113, 194, 222, 90))
+        surface.DrawOutlinedRect(0, 0, w, h, 1)
+        DrawLoaderText("DISMISS", "ThemeEngineLoaderData", w * 0.5, 12, hovered and Color(255, 229, 219) or Color(218, 231, 236), "center")
+    end
+    close.DoClick = HideAddonErrorNotice
+    loaderErrorPopup.OnSizeChanged = function(panel, w)
+        if IsValid(close) then close:SetPos(w - 104, 18) end
+    end
+    loaderErrorPopup:MoveToFront()
+    close:MoveToFront()
+    loaderErrorPopup:AlphaTo(255, 0.18, 0)
+end
+
+local function ScheduleAddonErrorNotice()
+    if not MENU_DLL or loaderErrorNoticeShown or timer.Exists("ThemeEngine_MasterAddonErrorNotice") then return end
+    timer.Create("ThemeEngine_MasterAddonErrorNotice", 10, 1, function()
+        if IsAddonMounted and IsAddonMounted() then return end
+        local info = GetAddonInfo and GetAddonInfo()
+        if info and info.downloaded == false then
+            ScheduleAddonErrorNotice()
+            return
+        end
+        ShowAddonErrorNotice()
+    end)
+end
+
+function ThemeEngine_HideStartupOverlay(keepWorkshopWatch)
     timer.Remove("ThemeEngine_MasterOverlayWait")
     timer.Remove("ThemeEngine_MasterOverlayReadyFallback")
-    timer.Remove("ThemeEngine_MasterWorkshopWaitFallback")
+    if not keepWorkshopWatch then timer.Remove("ThemeEngine_MasterWorkshopWaitFallback") end
     if not IsValid(loaderOverlay) then return end
     local panel = loaderOverlay
     loaderQuitButton = nil
@@ -285,8 +393,11 @@ end
 local function ScheduleWorkshopWaitFallback()
     if not MENU_DLL then return end
     timer.Remove("ThemeEngine_MasterWorkshopWaitFallback")
-    timer.Create("ThemeEngine_MasterWorkshopWaitFallback", 8, 1, function()
-        if IsAddonMounted and IsAddonMounted() then return end
+    timer.Create("ThemeEngine_MasterWorkshopWaitFallback", 0.75, 1, function()
+        if IsAddonMounted and IsAddonMounted() then
+            if CheckAndLoad then CheckAndLoad() end
+            return
+        end
         local info = GetAddonInfo and GetAddonInfo()
         if info and info.downloaded == false then
             ThemeEngine_SetStartupStatus("DOWNLOADING WORKSHOP ADDON", "loading", "Steam is retrieving Workshop item " .. THEME_ENGINE_WSID .. ".")
@@ -294,11 +405,14 @@ local function ScheduleWorkshopWaitFallback()
             return
         end
         if info then
-            ThemeEngine_SetStartupStatus("MOUNTING WORKSHOP ADDON", "loading", "Waiting for Garry's Mod to mount the subscribed Theme Engine files.")
+            ThemeEngine_SetStartupStatus("WORKSHOP ADDON UNAVAILABLE", "missing", "The addon is installed but not mounted. Re-enable it in Addons, or press Quit to use Garry's Mod without Theme Engine.")
+            ScheduleAddonErrorNotice()
             ScheduleWorkshopWaitFallback()
             return
         end
         ThemeEngine_SetStartupStatus("WORKSHOP ADDON REQUIRED", "missing", "Theme Engine needs Workshop item " .. THEME_ENGINE_WSID .. " to operate.\nSubscribe to the addon, then allow Steam to finish downloading it.")
+        ScheduleAddonErrorNotice()
+        ScheduleWorkshopWaitFallback()
     end)
 end
 
@@ -556,9 +670,15 @@ GetAddonInfo = function()
         local addons = engine.GetAddons()
         local found
         for _, v in ipairs(addons) do
-            if v.wsid == THEME_ENGINE_WSID then
-                found = v
-                break
+            local wsid = tostring(v.wsid or "")
+            if THEME_ENGINE_WSIDS[wsid] then
+                if v.mounted then
+                    found = v
+                    break
+                end
+                if not found or (found.downloaded == false and v.downloaded ~= false) then
+                    found = v
+                end
             end
         end
         _addonInfoCache = found
@@ -622,6 +742,7 @@ local function LoadThemeEngine()
     if _loaded then return end
 
     timer.Remove("ThemeEngine_MasterWorkshopWaitFallback")
+    ClearAddonErrorState()
 
     local files = DiscoverThemeFiles()
     if #files == 0 then
@@ -677,6 +798,7 @@ local function LoadThemeEngine()
     end
 
     _loaded = true
+    loaderLoadedOnce = true
 
     if #deferred == 0 then
         DarkThemeEngine_Log("info", "Loader", "Ready")
@@ -708,6 +830,10 @@ local function UnloadThemeEngine()
 
 
     if DarkThemeEngine then
+        if DarkThemeEngine.RestoreDefaultMenu then
+            pcall(DarkThemeEngine.RestoreDefaultMenu)
+        end
+
         if DarkThemeEngine.Cleanup then
             pcall(DarkThemeEngine.Cleanup)
         end
@@ -718,15 +844,93 @@ local function UnloadThemeEngine()
         end
     end
 
+    if loaderOriginalBackgroundFunctions.ClearBackgroundImages then _G.ClearBackgroundImages = loaderOriginalBackgroundFunctions.ClearBackgroundImages end
+    if loaderOriginalBackgroundFunctions.AddBackgroundImage then _G.AddBackgroundImage = loaderOriginalBackgroundFunctions.AddBackgroundImage end
+    if loaderOriginalBackgroundFunctions.ChangeBackground then _G.ChangeBackground = loaderOriginalBackgroundFunctions.ChangeBackground end
+    if loaderOriginalBackgroundFunctions.DrawBackground then _G.DrawBackground = loaderOriginalBackgroundFunctions.DrawBackground end
+    if MENU_DLL and IsValid(pnlMainMenu) and pnlMainMenu.UpdateBackgroundImages then
+        pcall(pnlMainMenu.UpdateBackgroundImages, pnlMainMenu)
+    end
+
 
     hook.Remove("InitPostEntity", "ThemeEngine_SkinInit")
     hook.Remove("SpawnMenuCreated", "ThemeEngine_SkinOnCreate")
     hook.Remove("SpawnMenuOpen", "ThemeEngine_SkinEnforce")
     hook.Remove("MenuStart", "ThemeEngineReinject")
+    hook.Remove("GameContentChanged", "DarkTheme_AddonRefresh")
+    hook.Remove("GameContentChanged", "DarkTheme_MiscAddonRefresh")
+    hook.Remove("WorkshopDownloadedFile", "ThemeEngine_WorkshopDownloadReady")
+    hook.Remove("WorkshopEnd", "ThemeEngine_WorkshopEndApply")
+    hook.Remove("WorkshopSubscriptionsChanged", "ThemeEngine_WorkshopSubsChanged")
+    hook.Remove("GameContentChanged", "ThemeEngine_WorkshopMountedRefresh")
+    hook.Remove("Think", "DTE_VguiTheme_ScanPopups")
+    hook.Remove("LoadingScreenPanelCreated", "DTE_VguiTheme_LoadingPanel")
+    hook.Remove("Think", "DTE_VguiTheme_Notifications")
+
+    local addonTimers = {
+        "DarkTheme_LoadingWatch",
+        "DarkTheme_BackgroundPreviewDriver",
+        "DarkTheme_HijackEngine",
+        "DarkTheme_BackgroundWarmCache",
+        "DarkTheme_AddonRefresh_Debounce",
+        "DarkThemeEngine_WorkshopApplyDebounce",
+        "DarkThemeEngine_WorkshopPendingPoll",
+        "DarkTheme_CoverSend",
+        "DarkThemeEngine_Music_Poll",
+        "DarkThemeEngine_MusicFileWatch",
+    }
+    for _, timerName in ipairs(addonTimers) do timer.Remove(timerName) end
 
 
     if MENU_DLL and IsValid(pnlMainMenu) and pnlMainMenu.CallJS then
-        pcall(pnlMainMenu.CallJS, pnlMainMenu, "if(window.DarkThemeEngine_Unload) window.DarkThemeEngine_Unload();")
+        pcall(pnlMainMenu.CallJS, pnlMainMenu, [[
+            if (window.DarkThemeEngine_Unload) {
+                window.DarkThemeEngine_Unload();
+            } else {
+                (function() {
+                    var ids = [
+                        'dark_theme_css_menu', 'dark_theme_css_navbar', 'dark_theme_css_newgame',
+                        'dark_theme_css_servers', 'dark_theme_css_workshop', 'dark_theme_css_custom',
+                        'dark_theme_css_extra', 'dark_theme_css_alwayson', 'dark_theme_custom_overlay',
+                        'dt_menu_font_style', 'dt_menu_fontsize_style', 'dt_local_fonts_style'
+                    ];
+                    for (var i = 0; i < ids.length; i++) {
+                        var element = document.getElementById(ids[i]);
+                        if (element) element.remove();
+                    }
+                    var link = document.getElementById('theme_options_btn');
+                    if (link) {
+                        var parent = link.parentElement;
+                        link.remove();
+                        if (parent && (parent.tagName || '').toLowerCase() === 'li' && parent.children.length === 0) parent.remove();
+                    }
+                    if (document && document.body) {
+                        document.body.classList.remove('dark-theme-custom-active', 'dt-modal-open');
+                        document.body.removeAttribute('data-theme-engine-custom');
+                    }
+                    if (typeof lua !== 'undefined' && window._DT_OriginalPlaySound) lua.PlaySound = window._DT_OriginalPlaySound;
+                    try {
+                        var injector = angular.element(document.body).injector();
+                        if (!injector) return;
+                        var cache = injector.get('$templateCache');
+                        var route = injector.get('$route');
+                        if (window._DT_FullThemeOriginalTemplates) {
+                            for (var key in window._DT_FullThemeOriginalTemplates) {
+                                if (Object.prototype.hasOwnProperty.call(window._DT_FullThemeOriginalTemplates, key)) {
+                                    cache.put(key, window._DT_FullThemeOriginalTemplates[key] || '');
+                                }
+                            }
+                        }
+                        cache.remove('template/dark_theme.html');
+                        delete route.routes['/theme/'];
+                        delete route.routes['/theme'];
+                        window.DarkThemeEngine_InjectLink = function() {};
+                        if (String(window.location.hash || '').indexOf('#/theme') === 0) window.location.hash = '#/';
+                        else if (route.reload) route.reload();
+                    } catch (e) {}
+                })();
+            }
+        ]])
     end
 
 
@@ -747,6 +951,7 @@ end
 local function RemoveAllHooks()
     timer.Remove("ThemeEngine_MasterAddonRegistrationWait")
     timer.Remove("ThemeEngine_MasterWorkshopWaitFallback")
+    timer.Remove("ThemeEngine_MasterAddonErrorNotice")
     hook.Remove("GameContentChanged", "ThemeEngineLoader_Watch")
     hook.Remove("MenuStart", "ThemeEngineLoader_StartupOverlay")
     hook.Remove("InitPostEntity", "ThemeEngine_SkinInit")
@@ -759,14 +964,19 @@ end
 
 
 
-local function CheckAndLoad()
+CheckAndLoad = function()
     if IsAddonMounted() then
+        ClearAddonErrorState()
         if not _loaded then
             LoadThemeEngine()
         end
     else
         local info = GetAddonInfo()
-        if MENU_DLL and info then
+        local wasRunning = _loaded or loaderLoadedOnce
+        if _loaded then
+            UnloadThemeEngine()
+        end
+        if MENU_DLL and info and not wasRunning then
             if info.downloaded == false then
                 ThemeEngine_SetStartupStatus("DOWNLOADING WORKSHOP ADDON", "loading", "Steam is retrieving Workshop item " .. THEME_ENGINE_WSID .. ".")
             else
@@ -774,12 +984,14 @@ local function CheckAndLoad()
             end
             ThemeEngine_ShowStartupOverlay()
             ScheduleWorkshopWaitFallback()
-        elseif MENU_DLL then
+            if info.downloaded ~= false then ScheduleAddonErrorNotice() end
+        elseif MENU_DLL and not wasRunning then
             ThemeEngine_SetStartupStatus("WORKSHOP ADDON REQUIRED", "missing", "Theme Engine needs Workshop item " .. THEME_ENGINE_WSID .. " to operate.\nSubscribe to the addon, then allow Steam to finish downloading it.")
             ThemeEngine_ShowStartupOverlay()
-        end
-        if _loaded then
-            UnloadThemeEngine()
+            ScheduleAddonErrorNotice()
+        elseif MENU_DLL then
+            ScheduleAddonErrorNotice()
+            ScheduleWorkshopWaitFallback()
         end
     end
 end
@@ -791,8 +1003,11 @@ local function WaitForAddonRegistration()
         return
     end
 
+    local wasRunning = _loaded or loaderLoadedOnce
+    if _loaded then UnloadThemeEngine() end
     ThemeEngine_SetStartupStatus("WORKSHOP ADDON REQUIRED", "missing", "Theme Engine needs Workshop item " .. THEME_ENGINE_WSID .. " to operate.\nSubscribe to the addon, then allow Steam to finish downloading it.")
-    ThemeEngine_ShowStartupOverlay()
+    if not wasRunning then ThemeEngine_ShowStartupOverlay() end
+    ScheduleAddonErrorNotice()
     timer.Create("ThemeEngine_MasterAddonRegistrationWait", 0.5, 0, function()
         if IsAddonInstalled() then
             timer.Remove("ThemeEngine_MasterAddonRegistrationWait")
