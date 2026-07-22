@@ -28,8 +28,7 @@ DarkThemeEngine.Credits = {
 DarkThemeEngine.Changelog = {
     { ver = "1.1.0", tag = "update", sections = {
         { title = "Installer", items = {
-            "A native setup application is now available for Windows, Linux, and macOS.",
-            "Steam libraries and Garry's Mod installations are detected without requiring administrator access or PowerShell execution-policy changes.",
+            "A native setup application is now available for Windows, Linux, and macOS maybe soon...",
             "Install, Repair, and Uninstall operate only on Theme Engine-owned files and preserve current Garry's Mod files.",
             "Installer failures caused by unavailable drives and unclear installation paths now produce actionable results instead of closing silently.",
         }},
