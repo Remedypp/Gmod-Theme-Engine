@@ -551,7 +551,7 @@ function DarkTheme_PlayStartupMusic()
 
     local validTracks = {}
     for _, snd in ipairs(DarkThemeEngine.AllMusic) do
-        if not disabledMusic[snd.path] then
+        if not disabledMusic[snd.path] and not disabledAlbums[snd.album or ""] then
             table.insert(validTracks, snd)
         end
     end

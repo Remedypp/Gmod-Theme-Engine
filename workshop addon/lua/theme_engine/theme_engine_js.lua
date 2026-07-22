@@ -318,10 +318,10 @@ window.DarkThemeEngine_InstallMenuSoundHook = function() {
                 var mapped = pack.sounds[wanted];
                 if (mapped) {
                     if (!window.DarkThemeEngine_ShouldPlayMenuSound(wanted, mapped)) return;
-                    if (String(mapped).indexOf('addons/') === 0 || String(mapped).indexOf('theme_engine_menu_sounds/') === 0) {
+                    if (String(mapped).indexOf('addons/') === 0 || String(mapped).indexOf('data/') === 0 || String(mapped).indexOf('theme_engine_menu_sounds/') === 0) {
                         try {
                             var audio = new Audio(encodeURI('asset://garrysmod/sound/' + mapped));
-                            if (String(mapped).indexOf('addons/') === 0) audio = new Audio(encodeURI('asset://garrysmod/' + mapped));
+                            if (String(mapped).indexOf('addons/') === 0 || String(mapped).indexOf('data/') === 0) audio = new Audio(encodeURI('asset://garrysmod/' + mapped));
                             audio.volume = Math.max(0, Math.min(1, window._DT_MenuSoundVolume || 0.45));
                             var p = audio.play();
                             if (p && p.catch) p.catch(function(){});
@@ -1596,6 +1596,8 @@ window.ThemeEngineMusic = window.ThemeEngineMusic || (function() {
         },
         _emit: emit
     };
+    window._DT_MenuSoundClickHandler = markClick;
+    window._DT_MenuSoundHoverHandler = markHover;
 })();
 window.DarkThemeEngine_ReceiveMusic = function(tracks, disabled, opts, disabledAlbums, currentTrack) {
     var oldLength = window._DarkTheme_Music ? window._DarkTheme_Music.length : -1;
@@ -2071,7 +2073,7 @@ window.DarkThemeEngine_SetFontSize = function(size) {
     var el = document.getElementById('dt_menu_fontsize_style');
     var slider = document.getElementById('opt_font_size');
     var label = document.getElementById('opt_font_size_label');
-    if (!size || size <= 0) {
+    if (!size || size <= 0 || size === 12) {
         if (el) el.textContent = '';
         if (slider) slider.value = 12;
         if (label) label.textContent = 'Default';
@@ -2580,6 +2582,96 @@ window.DarkThemeEngine_CleanupAllOverlays = function() {
     if (changelog) changelog.remove();
     if (window.DarkThemeEngine_ClosePreview) window.DarkThemeEngine_ClosePreview();
     if (window.DarkThemeEngine_CloseMusicPreview) window.DarkThemeEngine_CloseMusicPreview();
+};
+window.DarkThemeEngine_Unload = function() {
+    try {
+        window.DarkThemeEngine_CleanupAllOverlays();
+        var removable = [
+            'theme_options_btn', 'dt_help_panel', 'dt_changelog_panel',
+            'bg_preview_modal', 'music_preview_modal', 'dt_addbg_popup',
+            'dark_theme_custom_overlay', 'dt_menu_font_style',
+            'dt_menu_fontsize_style', 'dt_local_fonts_style'
+        ];
+        for (var i = 0; i < removable.length; i++) {
+            var node = document.getElementById(removable[i]);
+            if (!node) continue;
+            if (removable[i] === 'theme_options_btn' && node.parentElement &&
+                (node.parentElement.tagName || '').toLowerCase() === 'li') {
+                node.parentElement.remove();
+            } else {
+                node.remove();
+            }
+        }
+
+        if (document && document.body) {
+            document.body.classList.remove('dark-theme-custom-active', 'dt-modal-open');
+            document.body.removeAttribute('data-theme-engine-custom');
+        }
+
+        if (window._DT_InjectRetry) clearInterval(window._DT_InjectRetry);
+        if (window._DarkTheme_PreviewTimer) clearInterval(window._DarkTheme_PreviewTimer);
+        if (window._DarkTheme_PreviewFadeTimer) clearTimeout(window._DarkTheme_PreviewFadeTimer);
+        if (window._DarkTheme_PreviewResetTimer) clearTimeout(window._DarkTheme_PreviewResetTimer);
+        if (window._DarkTheme_GladosTimer) clearInterval(window._DarkTheme_GladosTimer);
+        if (window._DT_ChangelogRetryTimer) clearInterval(window._DT_ChangelogRetryTimer);
+        if (window._DT_ChangelogChunkTimer) clearTimeout(window._DT_ChangelogChunkTimer);
+        if (window._DT_WorkshopGuardRetry) clearTimeout(window._DT_WorkshopGuardRetry);
+        if (window._DT_WorkshopRefreshTimer) clearTimeout(window._DT_WorkshopRefreshTimer);
+        if (window._DT_VizRAF) cancelAnimationFrame(window._DT_VizRAF);
+        if (window._DT_FallbackVizRAF) cancelAnimationFrame(window._DT_FallbackVizRAF);
+
+        if (window._DT_MenuSoundInputBound) {
+            var clickHandler = window._DT_MenuSoundClickHandler;
+            var hoverHandler = window._DT_MenuSoundHoverHandler;
+            if (clickHandler) {
+                window.removeEventListener('mousedown', clickHandler, true);
+                window.removeEventListener('mouseup', clickHandler, true);
+                window.removeEventListener('click', clickHandler, true);
+                window.removeEventListener('keydown', clickHandler, true);
+                window.removeEventListener('touchstart', clickHandler, true);
+            }
+            if (hoverHandler) {
+                window.removeEventListener('mouseover', hoverHandler, true);
+                window.removeEventListener('mousemove', hoverHandler, true);
+            }
+        }
+
+        if (typeof lua !== 'undefined' && window._DT_OriginalPlaySound) {
+            lua.PlaySound = window._DT_OriginalPlaySound;
+        }
+
+        if (typeof Subscriptions !== 'undefined' && Subscriptions.prototype) {
+            var proto = Subscriptions.prototype;
+            if (proto._DT_OriginalSubscribe) proto.Subscribe = proto._DT_OriginalSubscribe;
+            if (proto._DT_OriginalUnsubscribe) proto.Unsubscribe = proto._DT_OriginalUnsubscribe;
+            if (proto._DT_OriginalApplyChanges) proto.ApplyChanges = proto._DT_OriginalApplyChanges;
+        }
+
+        try {
+            var injector = angular.element(document.body).injector();
+            if (injector) {
+                var $templateCache = injector.get('$templateCache');
+                var $route = injector.get('$route');
+                $templateCache.remove('template/dark_theme.html');
+                delete $route.routes['/theme/'];
+                delete $route.routes['/theme'];
+                if (String(window.location.hash || '').indexOf('#/theme') === 0) window.location.hash = '#/';
+                else if ($route.reload) $route.reload();
+            }
+        } catch (routeError) {}
+
+        window._DT_MenuSoundHooked = false;
+        window._DT_MenuSoundInputBound = false;
+        window._DT_WorkshopGuardInstalled = false;
+        window._DT_InjectRetry = null;
+        window._DarkTheme_PreviewTimer = null;
+        window._DarkTheme_GladosTimer = null;
+        window._DT_VizRAF = null;
+        window._DT_FallbackVizRAF = null;
+        window._DarkTheme_IsAnniversary = false;
+        window.DarkThemeEngine_InjectLink = function() {};
+        window.DarkThemeEngine_InjectMiniPlayer = function() {};
+    } catch (e) {}
 };
 window.addEventListener('hashchange', function() {
     var hash = window.location.hash;

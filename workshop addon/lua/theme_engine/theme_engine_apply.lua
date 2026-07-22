@@ -532,6 +532,17 @@ local function RestoreFullTemplates()
     ]])
 end
 
+function DarkThemeEngine.RestoreDefaultMenu()
+    DarkThemeEngine._CustomLoadingCSS = nil
+    DarkThemeEngine._CustomThemeSuspended = false
+    DarkThemeEngine.RemoveAllCSS()
+    RestoreFullTemplates()
+
+    if DarkThemeEngine.RestoreDefaultBackgroundSystem then
+        pcall(DarkThemeEngine.RestoreDefaultBackgroundSystem)
+    end
+end
+
 function DarkThemeEngine.InjectCustomTheme(folder)
     folder = SafeCustomThemeFolder(folder)
     if folder == "" then return false end

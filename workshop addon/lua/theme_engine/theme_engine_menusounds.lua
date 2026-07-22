@@ -13,6 +13,7 @@ local MAX_PACKS = 96
 local DATA_DIR = "theme_engine_data"
 local MENU_SOUND_CACHE_FILE = DATA_DIR .. "/menu_sounds_cache.json"
 local MAX_MENU_SOUND_CACHE_BYTES = 128 * 1024
+local MAX_EXTRACTED_SOUND_BYTES = 8 * 1024 * 1024
 local CachedPacks = nil
 local CachedPacksTime = 0
 local CACHE_SECONDS = 60
@@ -268,6 +269,41 @@ local function GetPacks()
     return DarkThemeEngine.ScanMenuSoundPacks()
 end
 
+local function MaterializeMountedPack(pack)
+    if not pack or pack.id == "default" or pack.isLocal or type(pack.sounds) ~= "table" then return false end
+    if not pack.addon or pack.addon == "" then return false end
+
+    local safeFolder = string.gsub(pack.id, "[^%w_%-]", "_")
+    local dataRoot = "theme_engine_menu_sounds/selected/" .. safeFolder
+    file.CreateDir("theme_engine_menu_sounds")
+    file.CreateDir("theme_engine_menu_sounds/selected")
+    file.CreateDir(dataRoot)
+
+    local extracted = {}
+    for key in pairs(pack.sounds) do
+        local rel = NormalizePath(key)
+        local raw
+        for _, candidate in ipairs({ "sound/" .. rel, rel }) do
+            local size = file.Size(candidate, pack.addon)
+            if size and size > 0 and size <= MAX_EXTRACTED_SOUND_BYTES then
+                raw = file.Read(candidate, pack.addon)
+                if raw and raw ~= "" then break end
+            end
+        end
+        if raw and raw ~= "" then
+            local filename = string.gsub(rel, "[^%w%.%-_]", "_")
+            local output = dataRoot .. "/" .. filename
+            file.Write(output, raw)
+            extracted[rel] = "data/" .. output
+        end
+    end
+
+    if next(extracted) == nil then return false end
+    pack.sounds = extracted
+    pack.count = table.Count(extracted)
+    return true
+end
+
 function DarkThemeEngine.InvalidateMenuSoundCache()
     CachedPacks = nil
     CachedPacksTime = 0
@@ -291,9 +327,17 @@ end
 function DarkThemeEngine_SetMenuSoundPack(id)
     id = SafeId(id)
     if id == "" or not IsKnownPack(id) then return end
+    local packs = GetPacks()
+    for _, pack in ipairs(packs) do
+        if pack.id == id then
+            if MaterializeMountedPack(pack) then SaveMenuSoundCache(packs) end
+            break
+        end
+    end
     DarkThemeEngine.Settings.ThemeOptions = DarkThemeEngine.Settings.ThemeOptions or {}
     DarkThemeEngine.Settings.ThemeOptions.MenuSoundPack = id
     if DarkThemeEngine.SaveSettings then DarkThemeEngine.SaveSettings() end
+    DarkThemeEngine.SendMenuSoundPacksToJS()
 end
 
 function DarkThemeEngine_SetMenuSoundVolume(value)
@@ -315,6 +359,12 @@ function DarkThemeEngine.SendMenuSoundPacksToJS()
         DarkThemeEngine.Settings.ThemeOptions = DarkThemeEngine.Settings.ThemeOptions or {}
         DarkThemeEngine.Settings.ThemeOptions.MenuSoundPack = "default"
         if DarkThemeEngine.SaveSettings then DarkThemeEngine.SaveSettings() end
+    end
+    for _, pack in ipairs(packs) do
+        if pack.id == active then
+            if MaterializeMountedPack(pack) then SaveMenuSoundCache(packs) end
+            break
+        end
     end
 
     DarkThemeEngine.CallJS(string.format(

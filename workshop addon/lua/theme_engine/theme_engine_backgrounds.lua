@@ -3,6 +3,12 @@ DarkThemeEngine.Settings = DarkThemeEngine.Settings or {}
 
 DarkThemeEngine.AllBackgrounds = DarkThemeEngine.AllBackgrounds or {}
 DarkThemeEngine.AllBackgroundsLookup = DarkThemeEngine.AllBackgroundsLookup or {}
+DarkThemeEngine._OriginalBackgroundFunctions = DarkThemeEngine._OriginalBackgroundFunctions or {
+    ClearBackgroundImages = _G.ClearBackgroundImages,
+    AddBackgroundImage = _G.AddBackgroundImage,
+    ChangeBackground = _G.ChangeBackground,
+    DrawBackground = _G.DrawBackground,
+}
 
 local DATA_DIR = "theme_engine_data"
 local SETTINGS_FILE = DATA_DIR .. "/settings.json"
@@ -893,6 +899,24 @@ function DarkThemeEngine.SendBackgroundsToJS()
             BG_Overlay      = bgOpts.BG_Overlay      or 0,
         }))
     ))
+end
+
+function DarkThemeEngine.RestoreDefaultBackgroundSystem()
+    local originals = DarkThemeEngine._OriginalBackgroundFunctions or {}
+    if originals.ClearBackgroundImages then _G.ClearBackgroundImages = originals.ClearBackgroundImages end
+    if originals.AddBackgroundImage then _G.AddBackgroundImage = originals.AddBackgroundImage end
+    if originals.ChangeBackground then _G.ChangeBackground = originals.ChangeBackground end
+    if originals.DrawBackground then _G.DrawBackground = originals.DrawBackground end
+
+    timer.Remove("DarkTheme_HijackEngine")
+    timer.Remove("DarkTheme_BackgroundWarmCache")
+    timer.Remove("DarkTheme_AddonRefresh_Debounce")
+    timer.Remove("DarkTheme_BackgroundPreviewDriver")
+    hook.Remove("GameContentChanged", "DarkTheme_AddonRefresh")
+
+    if IsValid(pnlMainMenu) and pnlMainMenu.UpdateBackgroundImages then
+        pcall(pnlMainMenu.UpdateBackgroundImages, pnlMainMenu)
+    end
 end
 
 timer.Create("DarkTheme_HijackEngine", 0.1, 0, function()

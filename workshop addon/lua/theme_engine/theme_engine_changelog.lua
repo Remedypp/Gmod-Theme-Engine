@@ -1,6 +1,13 @@
 DarkThemeEngine = DarkThemeEngine or {}
 
 DarkThemeEngine.Credits = {
+    { ver = "1.1.0", entries = {
+        { role = "Creator & Developer", name = "Remedy" },
+        { role = "Bug Reports", name = "Hybrid Theory, TinkyWinky, The Doctor, eon, Bunger" },
+        { role = "Addon Disable Reports", name = "Electric Kool-Aid, umi, Bunger" },
+        { role = "Installer Feedback", name = "Armor The Yoshi, Dr Gringle Mc Dingle the 3rd, Rimtrovert, 10 Cent Boogeyman, Chompski, krazzy karll" },
+        { role = "Platform Feedback", name = "baku" },
+    }},
     { ver = "1.0.0", entries = {
         { role = "Creator & Developer", name = "Remedy" },
         { role = "Ideas, Testing & Reports", name = "Theme Engine Community" },
@@ -19,6 +26,26 @@ DarkThemeEngine.Credits = {
 }
 
 DarkThemeEngine.Changelog = {
+    { ver = "1.1.0", tag = "update", sections = {
+        { title = "Installer", items = {
+            "A native setup application is now available for Windows, Linux, and macOS.",
+            "Steam libraries and Garry's Mod installations are detected without requiring administrator access or PowerShell execution-policy changes.",
+            "Install, Repair, and Uninstall operate only on Theme Engine-owned files and preserve current Garry's Mod files.",
+            "Installer failures caused by unavailable drives and unclear installation paths now produce actionable results instead of closing silently.",
+        }},
+        { title = "Startup & Addon State", items = {
+            "Disabling or unsubscribing from the Workshop addon no longer traps the player behind the startup screen.",
+            "The default Garry's Mod menu is restored when Theme Engine becomes unavailable, with a dismissible warning explaining what happened.",
+            "Re-enabling the mounted Workshop addon reloads Theme Engine without requiring the loader to be installed again.",
+        }},
+        { title = "Distribution", items = {
+            "Release builds are prepared as platform-specific packages alongside the installer source code.",
+            "The loader and setup program use the current Aperture Theme Engine Workshop item and provide clearer recovery guidance.",
+        }},
+        { title = "Community", items = {
+            "Thanks to everyone credited below who reported installer failures, addon-state lockouts, theme discovery issues, music settings, menu-sound behavior, and platform compatibility concerns.",
+        }},
+    }},
     { ver = "1.0.0", tag = "major", sections = {
         { title = "Release & Installation", items = {
             "Theme Engine returns as a complete 1.0 release with the legacy Pastebin bootstrap retired.",

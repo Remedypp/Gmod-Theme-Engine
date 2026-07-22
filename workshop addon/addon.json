@@ -1,0 +1,10 @@
+{
+	"title":		"Aperture Theme Engine",
+	"type":			"tool",
+	"tags":			[],
+	"ignore":		[
+		"*.psd",
+		"*.vcproj",
+		"*.db"
+	]
+}

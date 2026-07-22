@@ -385,9 +385,9 @@ body.dt-theme-route-open #NavBar number, body.dt-theme-route-open #NavBar .count
 .dt-change-line span { color:#d7b75a; margin-right:8px; }
 .dt-credits-block { margin-top:10px; padding-top:20px; border-top:1px solid rgba(126,188,220,0.14); }
 .dt-credits-title { font-size:0.76rem; font-weight:700; color:#7892a3; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
-.dt-credit-row { display:flex; gap:10px; margin-bottom:6px; font-size:0.88rem; }
-.dt-credit-row span { color:#7892a3; min-width:130px; }
-.dt-credit-row strong { color:#cbd5e1; font-weight:600; }
+.dt-credit-row { display:flex; align-items:flex-start; gap:10px; margin-bottom:6px; font-size:0.88rem; }
+.dt-credit-row span { color:#7892a3; min-width:130px; flex:0 0 130px; }
+.dt-credit-row strong { color:#cbd5e1; font-weight:600; min-width:0; overflow-wrap:anywhere; }
 .dt-loading-line { padding:18px 4px; color:#7892a3; font-size:0.86rem; letter-spacing:0.4px; }
 #dt_help_panel, #dt_changelog_panel { background:rgba(1,5,9,0.76) !important; }
 #dt_changelog_inner { width:720px !important; max-height:76vh !important; overflow:hidden !important; background:linear-gradient(115deg, rgba(19,31,42,0.99), rgba(8,14,20,0.99) 58%, rgba(17,23,28,0.99)) !important; border:1px solid rgba(126,188,220,0.22) !important; border-radius:4px !important; box-shadow:0 30px 80px rgba(0,0,0,0.72), inset 0 1px 0 rgba(255,255,255,0.05) !important; color:#d9e5ee !important; }
@@ -601,7 +601,7 @@ body.dt-theme-route-open #NavBar number, body.dt-theme-route-open #NavBar .count
                     <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
                         <span style="font-size:0.85rem;color:#94a3b8;white-space:nowrap;">Font Size:</span>
                         <input type="range" id="opt_font_size" min="8" max="20" value="12" step="1" style="flex:1;max-width:180px;accent-color:#3b82f6;cursor:pointer;" oninput="DarkThemeEngine_SetFontSize(parseInt(this.value))">
-                        <span id="opt_font_size_label" style="font-size:0.82rem;color:#60a5fa;font-weight:600;min-width:32px;">12px</span>
+                        <span id="opt_font_size_label" style="font-size:0.82rem;color:#60a5fa;font-weight:600;min-width:52px;">Default</span>
                         <button class="theme-btn" style="font-size:0.75rem;padding:4px 10px;background:rgba(148,163,184,0.1);color:#94a3b8;border:1px solid rgba(148,163,184,0.2);" onclick="DarkThemeEngine_SetFontSize(0)">Default</button>
                     </div>
                     <div style="font-size:0.78rem;color:#475569;margin-top:6px;">To add custom fonts locally, place <code style="color:#94a3b8;">.ttf</code> files in <code style="color:#94a3b8;">garrysmod/data/theme_engine_fonts/</code></div>
