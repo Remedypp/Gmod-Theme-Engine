@@ -2,10 +2,14 @@
 
 mod discovery;
 mod installer;
+mod release;
 
 use eframe::egui::{self, Color32, RichText, Stroke};
 use installer::{ActionReport, InstallState};
 use std::path::PathBuf;
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::thread;
+use std::time::Duration;
 
 const LOGO: &[u8] = include_bytes!("../../branding/theme-engine-installer-logo.png");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -34,6 +38,15 @@ enum PendingAction {
     Repair,
     Uninstall,
     ExampleTheme,
+    OpenWorkshop,
+    OpenRelease,
+}
+
+enum ReleaseStatus {
+    Checking,
+    Current(String),
+    Available(release::ReleaseInfo),
+    Unavailable(String),
 }
 
 struct InstallerApp {
@@ -45,6 +58,8 @@ struct InstallerApp {
     report: Vec<String>,
     pending: Option<PendingAction>,
     logo: egui::TextureHandle,
+    release_status: ReleaseStatus,
+    release_rx: Option<Receiver<Result<release::ReleaseInfo, String>>>,
 }
 
 impl InstallerApp {
@@ -66,6 +81,10 @@ impl InstallerApp {
             .map(|path| path.display().to_string())
             .unwrap_or_default();
         let inspection = selected.as_ref().map(|path| installer::inspect(path));
+        let (release_tx, release_rx) = mpsc::channel();
+        thread::spawn(move || {
+            let _ = release_tx.send(release::check_latest(VERSION));
+        });
         Self {
             paths,
             selected,
@@ -76,6 +95,8 @@ impl InstallerApp {
             report: Vec::new(),
             pending: None,
             logo,
+            release_status: ReleaseStatus::Checking,
+            release_rx: Some(release_rx),
         }
     }
 
@@ -98,35 +119,59 @@ impl InstallerApp {
     }
 
     fn refresh(&mut self) {
-        let discovered = discovery::discover_gmod_paths();
-        for path in discovered {
-            if !self.paths.contains(&path) {
-                self.paths.push(path);
+        self.paths = discovery::discover_gmod_paths();
+        let selection = preferred_detected_path(&self.path_text, &self.paths);
+        match selection {
+            Some(path) => {
+                self.select_path(path);
+                self.message = format!(
+                    "Detection complete. {} installation(s) available.",
+                    self.paths.len()
+                );
+            }
+            None => {
+                self.selected = None;
+                self.inspection = None;
+                self.path_text.clear();
+                self.message = "No Garry's Mod installation was found. Use Browse to select the GarrysMod or garrysmod folder.".into();
+                self.report.clear();
             }
         }
-        if let Some(path) = &self.selected {
-            self.inspection = Some(installer::inspect(path));
-        }
-        self.message = format!(
-            "Detection complete. {} installation(s) available.",
-            self.paths.len()
-        );
     }
 
     fn run_action(&mut self, action: PendingAction) {
+        if matches!(action, PendingAction::OpenWorkshop) {
+            self.open_url(WORKSHOP_URL, "Workshop");
+            return;
+        }
+        if matches!(action, PendingAction::OpenRelease) {
+            let url = match &self.release_status {
+                ReleaseStatus::Available(info) => Some(info.url.clone()),
+                _ => None,
+            };
+            if let Some(url) = url {
+                self.open_url(&url, "release");
+            }
+            return;
+        }
         let Some(path) = self.selected.clone() else {
             self.message = "Select a valid Garry's Mod installation first.".into();
             return;
         };
+        let offer_workshop = matches!(action, PendingAction::Install);
         let result = match action {
             PendingAction::Install | PendingAction::Repair => installer::install(&path),
             PendingAction::Uninstall => installer::uninstall(&path),
             PendingAction::ExampleTheme => installer::install_example_theme(&path),
+            PendingAction::OpenWorkshop | PendingAction::OpenRelease => unreachable!(),
         };
         match result {
             Ok(ActionReport { headline, details }) => {
                 self.message = headline;
                 self.report = details;
+                if offer_workshop {
+                    self.pending = Some(PendingAction::OpenWorkshop);
+                }
             }
             Err(error) => {
                 self.message = format!("Operation failed: {error}");
@@ -136,29 +181,86 @@ impl InstallerApp {
         self.inspection = Some(installer::inspect(&path));
     }
 
+    fn open_url(&mut self, url: &str, label: &str) {
+        match open::that(url) {
+            Ok(()) => {
+                self.message = format!("Opened the {label} page in your browser.");
+            }
+            Err(error) => {
+                self.message = format!("Could not open the {label} page: {error}");
+            }
+        }
+    }
+
+    fn poll_release(&mut self, ctx: &egui::Context) {
+        let Some(receiver) = &self.release_rx else {
+            return;
+        };
+        match receiver.try_recv() {
+            Ok(Ok(info)) => {
+                if info.newer {
+                    self.release_status = ReleaseStatus::Available(info);
+                } else {
+                    self.release_status = ReleaseStatus::Current(info.version);
+                }
+                self.release_rx = None;
+            }
+            Ok(Err(error)) => {
+                self.release_status = ReleaseStatus::Unavailable(error);
+                self.release_rx = None;
+            }
+            Err(TryRecvError::Disconnected) => {
+                self.release_status =
+                    ReleaseStatus::Unavailable("Update service disconnected".into());
+                self.release_rx = None;
+            }
+            Err(TryRecvError::Empty) => {
+                ctx.request_repaint_after(Duration::from_millis(250));
+            }
+        }
+    }
+
     fn confirmation(&mut self, ctx: &egui::Context) {
         let Some(action) = self.pending else { return };
         let (title, body, confirm) = match action {
             PendingAction::Install => (
-                "Install Theme Engine?",
-                "The installer will add one include line to init.lua and init_menu.lua, then install the embedded loader and logo.",
-                "Install",
+                "Install Theme Engine?".to_owned(),
+                "The installer will add one include line to init.lua and init_menu.lua, then install the embedded loader and logo.".to_owned(),
+                "Install".to_owned(),
             ),
             PendingAction::Repair => (
-                "Repair installation?",
-                "The installer will normalize duplicate hooks and replace Theme Engine-owned loader assets with this version.",
-                "Repair",
+                "Repair installation?".to_owned(),
+                "The installer will normalize duplicate hooks and replace Theme Engine-owned loader assets with this version.".to_owned(),
+                "Repair".to_owned(),
             ),
             PendingAction::Uninstall => (
-                "Uninstall Theme Engine?",
-                "Only Theme Engine hooks and recognized Theme Engine-owned files will be removed. Official Garry's Mod files will not be restored from backups.",
-                "Uninstall",
+                "Uninstall Theme Engine?".to_owned(),
+                "Only Theme Engine hooks and recognized Theme Engine-owned files will be removed. Official Garry's Mod files will not be restored from backups.".to_owned(),
+                "Uninstall".to_owned(),
             ),
             PendingAction::ExampleTheme => (
-                "Install example theme?",
-                "The editable example theme folder will be replaced if it already exists.",
-                "Install example",
+                "Install example theme?".to_owned(),
+                "The editable example theme will be installed in garrysmod/addons. If a copy already exists, it will be preserved in theme_engine_installer_backup before replacement.".to_owned(),
+                "Install example".to_owned(),
             ),
+            PendingAction::OpenWorkshop => (
+                "Open Steam Workshop?".to_owned(),
+                "Aperture Theme Engine needs its Workshop addon. Open the official addon page in your browser?".to_owned(),
+                "Open Workshop".to_owned(),
+            ),
+            PendingAction::OpenRelease => {
+                let version = match &self.release_status {
+                    ReleaseStatus::Available(info) => info.version.as_str(),
+                    _ => "latest",
+                };
+                (
+                    "Open installer update?".to_owned(),
+                    format!(
+                        "Version {version} is available. Open the GitHub release page in your browser?"
+                    ),
+                    "Open release".to_owned(),
+                )
+            }
         };
         egui::Window::new(title)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -190,6 +292,14 @@ impl InstallerApp {
 impl eframe::App for InstallerApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
+        self.poll_release(&ctx);
+        self.draw_ui(ui);
+        self.confirmation(&ctx);
+    }
+}
+
+impl InstallerApp {
+    fn draw_ui(&mut self, ui: &mut egui::Ui) {
         ui.add_space(18.0);
         ui.horizontal(|ui| {
             ui.image((self.logo.id(), egui::vec2(92.0, 92.0)));
@@ -236,6 +346,10 @@ impl eframe::App for InstallerApp {
                             "Select GarrysMod, garrysmod, common, steamapps, or a Steam library",
                         ),
                     );
+                    if response.changed() {
+                        self.selected = None;
+                        self.inspection = None;
+                    }
                     if response.lost_focus()
                         && ui.input(|input| input.key_pressed(egui::Key::Enter))
                     {
@@ -380,7 +494,41 @@ impl eframe::App for InstallerApp {
         ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
             ui.horizontal(|ui| {
                 if ui.link("Open Workshop page").clicked() {
-                    let _ = open::that(WORKSHOP_URL);
+                    self.pending = Some(PendingAction::OpenWorkshop);
+                }
+                ui.separator();
+                match &self.release_status {
+                    ReleaseStatus::Checking => {
+                        ui.label(
+                            RichText::new("Checking for installer updates...")
+                                .color(Color32::from_rgb(117, 136, 145)),
+                        );
+                    }
+                    ReleaseStatus::Current(version) => {
+                        ui.label(
+                            RichText::new(format!("Latest installer: {version}"))
+                                .color(Color32::from_rgb(117, 136, 145)),
+                        );
+                    }
+                    ReleaseStatus::Available(info) => {
+                        if ui
+                            .link(
+                                RichText::new(format!("Installer {} available", info.version))
+                                    .strong()
+                                    .color(Color32::from_rgb(104, 203, 237)),
+                            )
+                            .clicked()
+                        {
+                            self.pending = Some(PendingAction::OpenRelease);
+                        }
+                    }
+                    ReleaseStatus::Unavailable(error) => {
+                        ui.label(
+                            RichText::new("Update check unavailable")
+                                .color(Color32::from_rgb(117, 136, 145)),
+                        )
+                        .on_hover_text(error);
+                    }
                 }
                 ui.separator();
                 ui.label(
@@ -389,7 +537,6 @@ impl eframe::App for InstallerApp {
                 );
             });
         });
-        self.confirmation(&ctx);
     }
 }
 
@@ -413,5 +560,28 @@ fn load_icon() -> egui::IconData {
         width: image.width(),
         height: image.height(),
         rgba: image.into_raw(),
+    }
+}
+
+fn preferred_detected_path(path_text: &str, discovered: &[PathBuf]) -> Option<PathBuf> {
+    discovery::normalize_selected_path(PathBuf::from(path_text.trim()).as_path())
+        .or_else(|| discovered.first().cloned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::preferred_detected_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn empty_path_uses_first_detected_installation() {
+        let detected = vec![
+            PathBuf::from("/steam/one/garrysmod"),
+            PathBuf::from("/steam/two/garrysmod"),
+        ];
+        assert_eq!(
+            preferred_detected_path("", &detected),
+            Some(detected[0].clone())
+        );
     }
 }

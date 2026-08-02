@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const LOADER: &[u8] = include_bytes!("../../installer/payload/theme_engine_master.lua");
 const LOGO: &[u8] =
@@ -169,9 +170,7 @@ pub fn install_example_theme(path: &Path) -> Result<ActionReport, String> {
     let addons = path.join("addons");
     let target = addons.join("theme_engine_example_light");
     let staging = addons.join(".theme_engine_example_light.installing");
-    let previous = addons.join(".theme_engine_example_light.previous");
     remove_dir_if_exists(&staging)?;
-    remove_dir_if_exists(&previous)?;
     fs::create_dir_all(&staging).map_err(format_io)?;
     if let Err(error) = extract_embedded_dir(&EXAMPLE_THEME, &staging) {
         let _ = fs::remove_dir_all(&staging);
@@ -181,29 +180,60 @@ pub fn install_example_theme(path: &Path) -> Result<ActionReport, String> {
         let _ = fs::remove_dir_all(&staging);
         return Err("The example theme could not be verified after extraction".into());
     }
-    if target.exists() {
-        fs::rename(&target, &previous).map_err(format_io)?;
-    }
+    let backup = if target.exists() {
+        let backup = next_example_backup(path);
+        fs::create_dir_all(
+            backup
+                .parent()
+                .ok_or("Could not resolve the example theme backup folder")?,
+        )
+        .map_err(format_io)?;
+        fs::rename(&target, &backup).map_err(format_io)?;
+        Some(backup)
+    } else {
+        None
+    };
     if let Err(error) = fs::rename(&staging, &target).map_err(format_io) {
-        if previous.exists() {
-            let _ = fs::rename(&previous, &target);
+        if let Some(backup) = &backup {
+            let _ = fs::rename(backup, &target);
         }
         return Err(error);
     }
-    let _ = fs::remove_dir_all(&previous);
+    let mut details = vec![
+        target.display().to_string(),
+        "Restart Garry's Mod or reload mounted addons before selecting it".into(),
+    ];
+    if let Some(backup) = backup {
+        details.push(format!(
+            "Previous example theme preserved at {}",
+            backup.display()
+        ));
+    }
     Ok(ActionReport {
         headline: "Example theme installed".into(),
-        details: vec![
-            target.display().to_string(),
-            "Restart Garry's Mod or reload mounted addons before selecting it".into(),
-        ],
+        details,
     })
+}
+
+fn next_example_backup(path: &Path) -> PathBuf {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    let root = path.join("theme_engine_installer_backup");
+    let mut candidate = root.join(format!("example-theme-{timestamp}"));
+    let mut suffix = 1;
+    while candidate.exists() {
+        candidate = root.join(format!("example-theme-{timestamp}-{suffix}"));
+        suffix += 1;
+    }
+    candidate
 }
 
 fn example_theme_is_valid(path: &Path) -> bool {
     path.join("source/theme_manifest.json").is_file()
         && path
-            .join("data_static/theme_engine_full_themes/theme_engine_example_light/theme_manifest.json")
+            .join("data_static/theme_engine_full_themes/theme_engine_example_light/theme_manifest.json.dte.txt")
             .is_file()
 }
 
@@ -408,5 +438,26 @@ mod tests {
         fs::write(&loader, "user file").unwrap();
         uninstall(game.path()).unwrap();
         assert_eq!(fs::read_to_string(loader).unwrap(), "user file");
+    }
+
+    #[test]
+    fn example_theme_replacement_preserves_previous_copy() {
+        let game = fake_game();
+        install_example_theme(game.path()).unwrap();
+        let marker = game
+            .path()
+            .join("addons/theme_engine_example_light/user-marker.txt");
+        fs::write(&marker, "keep me").unwrap();
+        let report = install_example_theme(game.path()).unwrap();
+        let backup = report
+            .details
+            .iter()
+            .find_map(|line| line.strip_prefix("Previous example theme preserved at "))
+            .map(PathBuf::from)
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(backup.join("user-marker.txt")).unwrap(),
+            "keep me"
+        );
     }
 }

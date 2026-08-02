@@ -188,7 +188,9 @@ fn add_vdf_libraries(steam_root: &Path, roots: &mut BTreeSet<PathBuf>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{clean_path, normalize_selected_path};
+    #[cfg(target_os = "windows")]
+    use super::clean_path;
+    use super::normalize_selected_path;
     use std::fs;
     #[cfg(target_os = "windows")]
     use std::path::PathBuf;
